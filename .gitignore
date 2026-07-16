@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Django
+staticfiles/
+media/
+db.sqlite3
+
+# Node / Vite
+node_modules/
+frontend/dist/
+
+# 任何 .env 變體一律不入版控（.env.example 除外）
+*.env
+!.env.example
+
+# IDE / OS
+.vs/
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
+
+# Claude Code 本機設定
+.claude/
