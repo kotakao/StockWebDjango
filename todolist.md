@@ -7,7 +7,7 @@
 
 ---
 
-## ☐ D0：專案骨架與環境（Django/DRF/Vite/Compose、雙庫與鐵律）
+## ☑ D0：專案骨架與環境（Django/DRF/Vite/Compose、雙庫與鐵律）— commit `7e76301`
 
 ```text
 你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支，目前僅有
@@ -178,4 +178,4 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push。
 
 ## 已完成（記錄用）
 
-（尚無）
+- ✅ D0 專案骨架與環境 — commit `7e76301`（pytest 9 綠、ruff 無錯；本機無 docker/node，compose 實跑與前端 build 待有環境機器補驗，步驟見 docs/reports/D0-report.md）
