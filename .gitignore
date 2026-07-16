@@ -12,14 +12,24 @@ htmlcov/
 staticfiles/
 media/
 db.sqlite3
+*.sqlite3
+dev-default.sqlite3
+# 本機 market 資料檔（唯讀來源／WAL 副檔）
+market.db
+market.db-wal
+market.db-shm
 
 # Node / Vite
 node_modules/
 frontend/dist/
 
 # 任何 .env 變體一律不入版控（.env.example 除外）
+.env
 *.env
 !.env.example
+
+# Docker 資料卷（本機 postgres 持久化）
+pgdata/
 
 # IDE / OS
 .vs/

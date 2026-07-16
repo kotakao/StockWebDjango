@@ -1,0 +1,12 @@
+# StockWebDjango 執行時依賴（pip；鎖主版本，相容 spec §2 版本基準）
+# 安裝：python -m venv .venv && .venv/Scripts/pip install -r requirements.txt
+
+Django>=5.2,<5.3            # Web 框架（5.2 LTS）
+djangorestframework>=3.15   # REST API：序列化／驗證／節流
+django-environ>=0.11        # 以環境變數載入設定（12-factor）
+django-redis>=5.4           # Redis 快取後端（django-redis）
+redis>=5                    # Redis 用戶端（django-redis / Celery 依賴）
+celery>=5.4                 # 非同步任務（broker/result = Redis）
+django-vite>=3              # 注入 Vite 建置產物到 Django template
+psycopg[binary]>=3.2        # PostgreSQL 驅動（default 庫）
+gunicorn>=23                # WSGI 伺服器（正式）

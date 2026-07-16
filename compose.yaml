@@ -1,0 +1,100 @@
+# Docker Compose（spec §10）
+#
+# 兩種啟動方式（profile 決定啟動哪些服務）：
+#   全套（nginx/web/worker/redis/postgres）：
+#     docker compose --profile full up -d --build
+#   dev（僅 redis + postgres，供宿主機 runserver 連線）：
+#     docker compose --profile dev up -d
+#     python manage.py runserver
+#
+# 說明：Compose profile 無法「在 plain up 啟動全部、在 dev profile 只啟動子集」，
+# 故兩種情境皆以明確 profile 指定（見 README）。
+
+x-web-env: &web-env
+  DJANGO_SETTINGS_MODULE: config.settings.prod
+  SECRET_KEY: ${SECRET_KEY}
+  ALLOWED_HOSTS: ${ALLOWED_HOSTS}
+  DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  REDIS_URL: redis://redis:6379/0
+  MARKET_DB_PATH: /data/market.db
+
+services:
+  postgres:
+    image: postgres:16
+    profiles: ["dev", "full"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7
+    profiles: ["dev", "full"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    profiles: ["full"]
+    command: >
+      sh -c "python manage.py collectstatic --noinput &&
+             gunicorn config.wsgi:application
+             --workers 2 --threads 2 --timeout 60 --bind 0.0.0.0:8000"
+    environment: *web-env
+    volumes:
+      # market.db 唯讀掛載（來源為宿主機 MARKET_DB_PATH，容器內固定 /data/market.db）
+      - ${MARKET_DB_PATH}:/data/market.db:ro
+      - static_data:/app/staticfiles
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  worker:
+    build: .
+    profiles: ["full"]
+    command: celery -A config worker -l info --concurrency 2
+    environment: *web-env
+    volumes:
+      - ${MARKET_DB_PATH}:/data/market.db:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:1.27-alpine
+    profiles: ["full"]
+    ports:
+      - "80:80"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - static_data:/usr/share/nginx/static:ro
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  static_data:

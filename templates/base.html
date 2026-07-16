@@ -1,0 +1,27 @@
+{% load django_vite %}
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}StockWeb{% endblock %}</title>
+  {% vite_hmr_client %}
+  {% vite_asset 'src/main.js' %}
+</head>
+<body>
+  <!-- Navbar 佔位；正式導覽於 D1 實作 -->
+  <nav class="navbar navbar-expand-lg" data-role="navbar-placeholder">
+    <div class="container">
+      <span class="navbar-brand">StockWeb</span>
+    </div>
+  </nav>
+
+  <main class="container py-3">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="container py-3 text-muted">
+    <small>資料由 StockDCBot 於每交易日 17:00 後更新。</small>
+  </footer>
+</body>
+</html>

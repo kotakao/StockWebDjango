@@ -1,0 +1,22 @@
+import { defineConfig } from "vite";
+import vue from "@vitejs/plugin-vue";
+import { resolve } from "node:path";
+
+// django-vite 整合：base 對齊 Django STATIC_URL，產物含 manifest 供後端注入。
+export default defineConfig({
+  plugins: [vue()],
+  base: "/static/",
+  build: {
+    manifest: true,
+    outDir: "dist",
+    emptyOutDir: true,
+    rollupOptions: {
+      input: resolve(__dirname, "src/main.js"),
+    },
+  },
+  server: {
+    host: "localhost",
+    port: 5173,
+    origin: "http://localhost:5173",
+  },
+});
