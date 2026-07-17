@@ -176,6 +176,62 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push。
 
 ---
 
+# 第二版派工
+
+## ☐ D5：自選股與持股頁（唯讀呈現）
+
+```text
+你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支）。
+請先閱讀 AGENT.md 與 docs/spec.md（§4 鐵律、§5/§6/§7）；一律繁體中文。
+嚴禁提交任何 .env 檔。工作區若有使用者未提交的變更勿動勿納入。
+前置：D1-D4 已完成；market.db 需有 watchlist 資料（無資料仍可開發，
+以測試 fixture 為準）。本機無 Node.js：前端只寫程式碼不 build，
+行為以 API 測試保障（與 spec §9 一致）。
+
+背景：market.db 的 watchlist（user_id TEXT + code，主鍵複合）與
+holdings（user_id TEXT + code、shares REAL、avg_cost REAL、updated_at TEXT，
+主鍵複合）由姊妹專案維護（Discord /watch 指令與 Blazor 版寫入）。
+本專案依鐵律對 market 連線「一律唯讀」——本功能只呈現、不提供任何
+編輯；編輯入口在 Discord 與 Blazor 版，頁面上須註明此事。
+
+需求：
+1. 設定：WATCHLIST_USER_ID 環境變數（預設 "0"，.env.example 補註解
+   「Discord 使用者 ID，對應 market.db watchlist/holdings 的 user_id」）。
+2. apps/market 補 managed=False 模型：watchlist、holdings（欄位如上，
+   複合主鍵以 Meta unique_together 或 composite pk 慣例處理，維持唯讀）。
+3. API：GET /api/watchlist/summary——selectors 讀 market 庫：
+   - 該 user_id 的 watchlist 代號清單，逐檔附最新 daily_quotes
+     （close、change_pct 以最新兩日計算）與最新 valuation（pe、pb、
+     dividend_yield）
+   - 該 user_id 的 holdings 逐檔附最新收盤，services 計算：市值
+     （shares*close）、未實現損益（(close-avg_cost)*shares）、報酬率
+     （(close-avg_cost)/avg_cost*100，avg_cost 為 0/NULL 時為 NULL）
+   - 個別代號缺行情容錯 null，不得使整包失敗；watchlist 與 holdings
+     皆空時回空清單（200）
+   整包 Redis 快取（key swd:v1:watchlist:{user_id}，TTL 10 分鐘）。
+4. 前端：Navbar 新增「自選股」（/watchlist，dashboard/stocks 之後，
+   active 高亮比照既有）；頁面 Vue app 兩區塊 Bootstrap table：
+   自選股（代號、收盤、漲跌%、PE、PB、殖利率）與持股（代號、股數、
+   均價、收盤、市值、未實現損益、報酬率），紅漲綠跌台股慣例、
+   NULL 顯示「—」；載入中/錯誤/空清單三態；頁尾註明「編輯請於
+   Discord /watch 或 Blazor 版操作」。
+5. 測試：selectors/services 單元測試（暫時 SQLite fixture 補建
+   watchlist/holdings 表——僅測試 DDL，正式程式嚴禁 DDL）；損益計算
+   （含 avg_cost 0/NULL、缺行情）測試；API 快取行為與空清單測試；
+   頁面路由測試。
+6. 鐵律不變：不動 config/routers.py 與唯讀機制；不新增資料表
+   （PostgreSQL 端本功能無自有資料）。
+
+驗收：pytest 全綠（既有 42 只增不減）；ruff 無錯誤；README 補
+「自選股」使用說明與 WATCHLIST_USER_ID 設定說明。完成後以 feat 前綴
+commit（訊息含「D5」，結尾加
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
+不要動 todolist.md（由管理流程更新）。
+回報：改動清單、測試數、hash。
+```
+
+---
+
 ## 已完成（記錄用）
 
 - ✅ D0 專案骨架與環境 — commit `7e76301`（pytest 9 綠、ruff 無錯；本機無 docker/node，compose 實跑與前端 build 待有環境機器補驗，步驟見 docs/reports/D0-report.md）
