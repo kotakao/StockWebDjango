@@ -80,6 +80,19 @@ docker compose --profile full up -d --build
 
 測試以 `config.settings.test` 執行：`default` 用暫時 SQLite、`market` 由 conftest 的 `market_db` fixture 注入暫時檔、Redis 用 fakeredis。含健康檢查、router 路由、以及「market 寫入必失敗」鐵律證明測試。
 
+## 功能：查詢個股
+
+導覽列「查詢個股」（`/stocks/query`）為個股近期資料頁（派工 D4）。
+
+- **輸入**：股票代號（前端先驗 4-6 位英數）→ 按「查詢」，呼叫 `GET /api/stocks/{code}/summary`。
+- **彙整中**：快照尚未就緒時 API 回 `202`，頁面顯示「彙整中…」並以 1 秒間隔輪詢（上限 10 次）；逾時顯示提示與「重試」按鈕。
+- **錯誤**：代號格式錯或查無代號回 `400`，頁面顯示 API 錯誤訊息。
+- **結果（200）**：
+  - 指標卡列：收盤與漲跌%（紅漲綠跌，台股慣例）、本益比、股價淨值比、殖利率、月營收 YoY、累計營收 YoY、毛利率、營業利益率、EPS；每卡標註資料基準（交易日／營收月份／財報季），數值缺漏顯示「—」。
+  - 近期資料表：近 20 個交易日快照（日期、收盤、漲跌%、PE、PB、殖利率）。
+
+> 前端為每頁獨立 Vue app（[`frontend/components/StockQuery.vue`](frontend/components/StockQuery.vue)，進入點 [`frontend/src/query.js`](frontend/src/query.js)）；僅取數渲染，商業邏輯在後端。
+
 ## 前端建置
 
 ```bash

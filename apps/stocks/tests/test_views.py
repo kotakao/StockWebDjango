@@ -25,3 +25,10 @@ def test_query_navbar_active():
     active = ACTIVE_LINK.findall(html)
     assert len(active) == 1
     assert active[0].strip() == "查詢個股"
+
+
+def test_query_mounts_vue_app():
+    """查詢頁（D4）含 Vue 掛載點與 query 進入點資產。"""
+    html = client.get("/stocks/query").content.decode()
+    assert 'id="stock-query-app"' in html
+    assert "src/query.js" in html
