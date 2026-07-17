@@ -34,6 +34,9 @@ CACHES = {  # noqa: F811
     }
 }
 
+# 自選股：固定 user_id 與測試 fixture 對齊，避免本機 .env 的真實值洩入測試
+WATCHLIST_USER_ID = "0"
+
 # Celery 同步執行，例外直接拋出
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
