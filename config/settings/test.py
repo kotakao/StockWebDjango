@@ -37,3 +37,8 @@ CACHES = {  # noqa: F811
 # Celery 同步執行，例外直接拋出
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
+
+# 前端：測試環境無 node/vite build 產物（無 manifest.json）。以 dev_mode 讓
+# django-vite 於頁面模板僅輸出 script 標籤（不讀 manifest、不需 dev server 運行），
+# 使繼承 base.html 的頁面測試可正常渲染。
+DJANGO_VITE["default"]["dev_mode"] = True  # noqa: F405

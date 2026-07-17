@@ -9,10 +9,28 @@
   {% vite_asset 'src/main.js' %}
 </head>
 <body>
-  <!-- Navbar 佔位；正式導覽於 D1 實作 -->
-  <nav class="navbar navbar-expand-lg" data-role="navbar-placeholder">
+  <nav class="navbar navbar-expand-lg navbar-light bg-light">
     <div class="container">
-      <span class="navbar-brand">StockWeb</span>
+      <a class="navbar-brand" href="{% url 'dashboard:index' %}">StockWeb</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+              data-bs-target="#mainNav" aria-controls="mainNav"
+              aria-expanded="false" aria-label="切換導覽">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="mainNav">
+        <ul class="navbar-nav">
+          <li class="nav-item">
+            <a class="nav-link{% if request.resolver_match.view_name == 'dashboard:index' %} active{% endif %}"
+               {% if request.resolver_match.view_name == 'dashboard:index' %}aria-current="page"{% endif %}
+               href="{% url 'dashboard:index' %}">首頁</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link{% if request.resolver_match.view_name == 'stocks:query' %} active{% endif %}"
+               {% if request.resolver_match.view_name == 'stocks:query' %}aria-current="page"{% endif %}
+               href="{% url 'stocks:query' %}">查詢個股</a>
+          </li>
+        </ul>
+      </div>
     </div>
   </nav>
 

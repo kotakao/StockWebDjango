@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}查詢個股 - StockWeb{% endblock %}
+
+{% block content %}
+<h1 class="h4">查詢個股</h1>
+<form class="row g-2" data-role="stock-query-placeholder">
+  <div class="col-auto">
+    <label class="visually-hidden" for="stockCode">股票代號</label>
+    <input type="text" class="form-control" id="stockCode" placeholder="股票代號" disabled>
+  </div>
+  <div class="col-auto">
+    <button type="submit" class="btn btn-primary" disabled>查詢</button>
+  </div>
+</form>
+<p class="text-muted mt-2"><small>查詢邏輯於 D4 實作。</small></p>
+{% endblock %}
