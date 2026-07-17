@@ -230,7 +230,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
 回報：改動清單、測試數、hash。
 ```
 
-## ☐ D6：法說會資訊頁（唯讀呈現）
+## ☑ D6：法說會資訊頁（唯讀呈現）— commit `2d6a3c6`＋fix `b50981c`
 
 ```text
 你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支）。
@@ -289,6 +289,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
 - ✅ D3 個股快照資料層 — commit `24a6791`（pytest 41 綠；欄位與 storage.py 逐欄核對一致；migration 對真實 PostgreSQL 待補驗；真實 market.db 唯讀抽查 2317/0050 正確）
 - ✅ D4 查詢個股資訊頁 — commit `df886f3`（pytest 42 綠；第一版 D0-D4 全數完成）
 - ✅ D5 自選股與持股頁（唯讀呈現）— commit `bea91cf`（pytest 55 綠；實機 API/頁面/空清單 200 驗證過；真實 watchlist/holdings 目前無資料，資料路徑由單元測試保障；前端渲染待有 Node 環境補驗）
+- ✅ D6 法說會資訊頁（唯讀呈現）— commit `2d6a3c6`＋fix `b50981c`（pytest 73 綠；fix 為 D5 測試隔離補強：test 設定固定 WATCHLIST_USER_ID="0" 免受本機 .env 影響；實機以真實 investor_conferences 驗證 upcoming 13/recent 18、頁面 200、days=91 → 400；前端渲染待有 Node 環境補驗）
 
 ### 待補驗清單（本機無 node/docker/真實 redis+postgres，集中於有環境機器一次補驗）
 
