@@ -230,6 +230,55 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
 回報：改動清單、測試數、hash。
 ```
 
+## ☐ D6：法說會資訊頁（唯讀呈現）
+
+```text
+你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支）。
+請先閱讀 AGENT.md 與 docs/spec.md（§4 鐵律、§5/§6/§7）；一律繁體中文。
+嚴禁提交任何 .env 檔。工作區若有使用者未提交的變更勿動勿納入。
+前置：D1-D5 已完成；本機無 Node.js：前端只寫程式碼不 build，
+行為以 API 測試保障（與 spec §9 一致）。
+
+背景：market.db 的 investor_conferences 表（StockDCBot DC-K 入庫）——
+主鍵 market+code+announce_date+announce_time，欄位另有 name、subject、
+matched_clause、fact_date（法說會召開日）、description、report_date，
+日期皆 ISO YYYY-MM-DD、時間 HH:MM:SS，缺漏容錯 NULL。此為每日快照
+過濾入庫（主旨含「法人說明會」），自部署起累積。本專案依鐵律對
+market 連線一律唯讀。
+
+需求：
+1. apps/market 補 managed=False 模型 InvestorConference（複合主鍵
+   比照既有慣例）與 selectors：
+   - upcoming_conferences(days)：fact_date 介於今日與今日+days（含），
+     依 fact_date 舊到新
+   - recent_conference_announcements(limit=20)：依 announce_date+
+     announce_time 新到舊
+2. API：GET /api/conferences/summary?days=30（days 1~90，驗證錯誤回
+   400 {"error": ...}）——回 {"days": n, "upcoming": [...], "recent": [...]}，
+   每筆含 market、code、name、subject、fact_date、announce_date；
+   兩清單皆空回空清單（200）。整包 Redis 快取
+   （key swd:v1:conferences:{days}，前綴比照既有由 CACHES 加上，
+   TTL 10 分鐘）。
+3. 前端：Navbar 新增「法說會」（/conferences，「自選股」之後，active
+   高亮比照既有）；頁面 Vue app 兩區塊 Bootstrap table：即將召開
+   （召開日、代號、公司、主旨）與近期公告（發言日、代號、公司、主旨），
+   NULL 顯示「—」；載入中/錯誤/空清單三態；頁尾註明資料性質
+   （每日快照自部署起累積、僅含主旨含「法人說明會」之公告）。
+   vite 進入點比照既有頁面。
+4. 鐵律不變：不動 config/routers.py 與唯讀機制；不新增資料表；
+   對 market 連線嚴禁任何寫入。
+5. 測試：selectors 日期窗（含邊界日、fact_date NULL 不入 upcoming）
+   單元測試（暫時 SQLite fixture 補建 investor_conferences 表——僅測試
+   DDL）；API 參數驗證（days 0/91 → 400）、快取行為、空清單測試；
+   頁面路由與 Navbar active 測試。
+
+驗收：pytest 全綠（既有 55 只增不減）；ruff 無錯誤；README 補
+「法說會」使用說明。完成後以 feat 前綴 commit（訊息含「D6」，結尾加
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
+不要動 todolist.md（由管理流程更新）。
+回報：改動清單（檔案與重點）、新增測試說明、測試總數、commit hash。
+```
+
 ---
 
 ## 已完成（記錄用）
