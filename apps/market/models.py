@@ -117,6 +117,30 @@ class Holding(models.Model):
         db_table = "holdings"
 
 
+class InvestorConference(models.Model):
+    """investor_conferences：法說會公告（DC-K 每日快照過濾入庫，主旨含「法人說明會」）。
+
+    PK(market, code, announce_date, announce_time)。日期皆 ISO YYYY-MM-DD、時間 HH:MM:SS，
+    缺漏容錯 NULL。fact_date 為法說會召開日。本專案唯讀呈現。
+    """
+
+    pk = models.CompositePrimaryKey("market", "code", "announce_date", "announce_time")
+    market = models.CharField(max_length=8)
+    code = models.CharField(max_length=8)
+    announce_date = models.CharField(max_length=10)
+    announce_time = models.CharField(max_length=8)
+    name = models.TextField(null=True)
+    subject = models.TextField(null=True)
+    matched_clause = models.TextField(null=True)
+    fact_date = models.CharField(max_length=10, null=True)
+    description = models.TextField(null=True)
+    report_date = models.CharField(max_length=10, null=True)
+
+    class Meta:
+        managed = False
+        db_table = "investor_conferences"
+
+
 class QuarterlyFinancial(models.Model):
     """quarterly_financials：季度損益。PK(market, code, year_quarter)。"""
 

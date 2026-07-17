@@ -92,6 +92,20 @@ CREATE TABLE IF NOT EXISTS holdings (
     updated_at TEXT,
     PRIMARY KEY (user_id, code)
 );
+
+CREATE TABLE IF NOT EXISTS investor_conferences (
+    market         TEXT NOT NULL DEFAULT 'TWSE',
+    code           TEXT NOT NULL,
+    announce_date  TEXT NOT NULL,
+    announce_time  TEXT NOT NULL,
+    name           TEXT,
+    subject        TEXT,
+    matched_clause TEXT,
+    fact_date      TEXT,
+    description    TEXT,
+    report_date    TEXT,
+    PRIMARY KEY (market, code, announce_date, announce_time)
+);
 """
 
 

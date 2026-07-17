@@ -106,6 +106,18 @@ docker compose --profile full up -d --build
 
 > 整包回應以 Redis 快取（key `swd:v1:watchlist:{user_id}`，TTL 10 分鐘）。前端為獨立 Vue app（[`frontend/components/Watchlist.vue`](frontend/components/Watchlist.vue)，進入點 [`frontend/src/watchlist.js`](frontend/src/watchlist.js)）。
 
+## 功能：法說會
+
+導覽列「法說會」（`/conferences/`）唯讀呈現 `market.db` 的 `investor_conferences`（由 StockDCBot DC-K 入庫，派工 D6）。
+
+- **資料來源**：呼叫 `GET /api/conferences/summary?days=30`（`days` 1~90，逾範圍回 `400 {"error": ...}`）。
+- **即將召開**：`fact_date`（召開日）介於今日與今日+`days`（含）之公告，依召開日舊到新；欄位為召開日、代號、公司、主旨。
+- **近期公告**：依發言日＋發言時間新到舊的近 20 筆，欄位為發言日、代號、公司、主旨。
+- **容錯**：缺漏欄位顯示「—」；兩清單皆空時顯示提示。
+- **資料性質**：為每日快照過濾入庫、自部署起累積，僅含主旨含「法人說明會」之公告；本頁唯讀（依鐵律，本專案對 `market` 連線一律唯讀）。
+
+> 整包回應以 Redis 快取（key `swd:v1:conferences:{days}`，TTL 10 分鐘）。前端為獨立 Vue app（[`frontend/components/Conferences.vue`](frontend/components/Conferences.vue)，進入點 [`frontend/src/conferences.js`](frontend/src/conferences.js)）。
+
 ## 前端建置
 
 ```bash

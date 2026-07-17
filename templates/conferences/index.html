@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load django_vite %}
+
+{% block title %}法說會 - StockWeb{% endblock %}
+
+{% block content %}
+<div id="conferences-app"></div>
+{% endblock %}
+
+{% block extra_js %}
+{% vite_asset 'src/conferences.js' %}
+{% endblock %}

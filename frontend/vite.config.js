@@ -16,6 +16,7 @@ export default defineConfig({
         dashboard: resolve(__dirname, "src/dashboard.js"),
         query: resolve(__dirname, "src/query.js"),
         watchlist: resolve(__dirname, "src/watchlist.js"),
+        conferences: resolve(__dirname, "src/conferences.js"),
       },
     },
   },

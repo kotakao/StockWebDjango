@@ -3,11 +3,14 @@
 鐵律：僅 SELECT，嚴禁任何寫入；查詢一律走 market 連線（Router 亦會導向）。
 """
 
+from datetime import date, timedelta
+
 from django.db.models import Max
 
 from .models import (
     DailyQuote,
     Holding,
+    InvestorConference,
     MarketDaily,
     MonthlyRevenue,
     QuarterlyFinancial,
@@ -110,6 +113,37 @@ def holdings_rows(user_id: str) -> list[dict]:
         .filter(user_id=user_id)
         .order_by("code")
         .values("code", "shares", "avg_cost")
+    )
+
+
+# ---- 法說會（D6）所需唯讀查詢：investor_conferences（DC-K 入庫）----
+
+# 兩清單共用回傳欄位（ISO 日期字串可直接比較排序）。
+_CONFERENCE_FIELDS = ("market", "code", "name", "subject", "fact_date", "announce_date")
+
+
+def upcoming_conferences(days: int, today: str | None = None) -> list[dict]:
+    """即將召開：fact_date 介於今日與今日+days（含），依 fact_date 舊到新。
+
+    ISO 日期字串字典序即時序，直接以字串比較。fact_date 為 NULL 者不符 __gte，
+    自然排除（不入 upcoming）。today 預設今日，供測試注入邊界。
+    """
+    today = today or date.today().isoformat()
+    end = (date.fromisoformat(today) + timedelta(days=days)).isoformat()
+    return list(
+        InvestorConference.objects.using("market")
+        .filter(fact_date__gte=today, fact_date__lte=end)
+        .order_by("fact_date")
+        .values(*_CONFERENCE_FIELDS)
+    )
+
+
+def recent_conference_announcements(limit: int = 20) -> list[dict]:
+    """近期公告：依 announce_date + announce_time 新到舊，取前 limit 筆。"""
+    return list(
+        InvestorConference.objects.using("market")
+        .order_by("-announce_date", "-announce_time")
+        .values(*_CONFERENCE_FIELDS)[:limit]
     )
 
 
