@@ -41,6 +41,42 @@ CREATE TABLE IF NOT EXISTS market_daily (
     short_balance    REAL,
     PRIMARY KEY (market, date)
 );
+
+CREATE TABLE IF NOT EXISTS valuation (
+    market         TEXT NOT NULL DEFAULT 'TWSE',
+    date           TEXT NOT NULL,
+    code           TEXT NOT NULL,
+    pe             REAL,
+    dividend_yield REAL,
+    pb             REAL,
+    PRIMARY KEY (market, date, code)
+);
+
+CREATE TABLE IF NOT EXISTS monthly_revenue (
+    market      TEXT NOT NULL DEFAULT 'TWSE',
+    code        TEXT NOT NULL,
+    year_month  TEXT NOT NULL,
+    name        TEXT,
+    revenue     REAL,
+    mom_pct     REAL,
+    yoy_pct     REAL,
+    cum_revenue REAL,
+    cum_yoy_pct REAL,
+    PRIMARY KEY (market, code, year_month)
+);
+
+CREATE TABLE IF NOT EXISTS quarterly_financials (
+    market           TEXT NOT NULL DEFAULT 'TWSE',
+    code             TEXT NOT NULL,
+    year_quarter     TEXT NOT NULL,
+    name             TEXT,
+    revenue          REAL,
+    gross_profit     REAL,
+    operating_income REAL,
+    net_income       REAL,
+    eps              REAL,
+    PRIMARY KEY (market, code, year_quarter)
+);
 """
 
 
@@ -68,3 +104,16 @@ def market_db(tmp_path, django_db_blocker):
         finally:
             market.close()
             market.settings_dict["NAME"] = old_name
+
+
+@pytest.fixture
+def market_db_ready(market_db):
+    """market_db 的變體：供同時存取 default 庫的測試使用。
+
+    當測試以 @pytest.mark.django_db(transaction=True, databases=["default", "market"])
+    同時管理 default 與 market 連線時，pytest-django 會先以「測試前既有連線」開啟 market，
+    使 market_db 注入的 NAME 未套用到既有連線。此處於 market_db 之後再關閉 market 連線，
+    強制後續查詢以 tmp 檔重連。需搭配 transaction=True（atomic 模式下連線不可關閉）。
+    """
+    connections["market"].close()
+    return market_db
