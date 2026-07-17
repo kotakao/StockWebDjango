@@ -147,7 +147,7 @@ JSON 不含財務指標，此為規格定案）：
 回報：欄位對映結果（與 StockDCBot storage.py 的核對情形）、測試數、hash。
 ```
 
-## ☐ D4：查詢個股資訊頁
+## ☑ D4：查詢個股資訊頁 — commit `df886f3`
 
 ```text
 你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支）。
@@ -182,3 +182,11 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push。
 - ✅ D1 外框 Navbar 與兩頁面殼 — commit `eaf9c7e`（pytest 13 綠；test 設定 django-vite 改 dev_mode=True 以免除 manifest 依賴，僅限測試設定）
 - ✅ D2 首頁儀表板四圖卡＋全站白底 — commit `2d5f4fe`（pytest 27 綠；法人累積採全窗序列與 Blazor 版 W1 補強一致；前端渲染與真實 redis 待有環境補驗）
 - ✅ D3 個股快照資料層 — commit `24a6791`（pytest 41 綠；欄位與 storage.py 逐欄核對一致；migration 對真實 PostgreSQL 待補驗；真實 market.db 唯讀抽查 2317/0050 正確）
+- ✅ D4 查詢個股資訊頁 — commit `df886f3`（pytest 42 綠；第一版 D0-D4 全數完成）
+
+### 待補驗清單（本機無 node/docker/真實 redis+postgres，集中於有環境機器一次補驗）
+
+1. `npm install && npm run build`（frontend/）＋瀏覽器實測三頁渲染與查詢輪詢 UX
+2. `docker compose --profile full up -d --build` 全套實跑（步驟見 docs/reports/D0-report.md 文末）
+3. StockSnapshot migration 對真實 PostgreSQL 實跑
+4. 真實 redis 下的快取與 Celery worker 行為抽查
