@@ -1,19 +1,12 @@
 {% extends "base.html" %}
+{% load django_vite %}
 
 {% block title %}首頁 - StockWeb{% endblock %}
 
 {% block content %}
-<div class="row g-3">
-  <div class="col-12">
-    <h1 class="h4">盤後儀表板</h1>
-  </div>
-  <div class="col-12 col-md-6 col-lg-3">
-    <div class="card">
-      <div class="card-body">
-        <h2 class="h6 card-title text-muted">佔位卡片</h2>
-        <p class="card-text">儀表板圖卡於 D2 實作。</p>
-      </div>
-    </div>
-  </div>
-</div>
+<div id="dashboard-app"></div>
+{% endblock %}
+
+{% block extra_js %}
+{% vite_asset 'src/dashboard.js' %}
 {% endblock %}

@@ -11,7 +11,10 @@ export default defineConfig({
     outDir: "dist",
     emptyOutDir: true,
     rollupOptions: {
-      input: resolve(__dirname, "src/main.js"),
+      input: {
+        main: resolve(__dirname, "src/main.js"),
+        dashboard: resolve(__dirname, "src/dashboard.js"),
+      },
     },
   },
   server: {

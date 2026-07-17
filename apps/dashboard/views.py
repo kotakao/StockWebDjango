@@ -1,8 +1,59 @@
-"""dashboard 頁面殼（D1）：首頁儀表板。內容圖卡於 D2 實作。"""
+"""dashboard 頁面殼與儀表板 API（D2）。
 
+- index：首頁頁面殼（掛載 Vue app）。
+- DashboardSummaryView：GET /api/dashboard/summary?days=60，market_daily 序列＋Redis 快取。
+"""
+
+from django.core.cache import cache
 from django.shortcuts import render
+from rest_framework.exceptions import ValidationError
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from apps.market import selectors
+
+from .services import build_dashboard_summary
+
+DAYS_DEFAULT = 60
+DAYS_MIN = 1
+DAYS_MAX = 252
+CACHE_TTL = 600  # 10 分鐘（spec §7）
 
 
 def index(request):
-    """首頁儀表板頁面殼，繼承 base.html，內容區為佔位卡片。"""
+    """首頁儀表板頁面殼，繼承 base.html，內容由 Vue app 渲染。"""
     return render(request, "dashboard/index.html")
+
+
+def _parse_days(raw: str | None) -> int:
+    """驗證 days 參數：1~252 整數，預設 60；不合法拋 DRF ValidationError（→400）。"""
+    if raw is None or raw == "":
+        return DAYS_DEFAULT
+    try:
+        days = int(raw)
+    except (TypeError, ValueError):
+        raise ValidationError("days 必須為整數") from None
+    if not (DAYS_MIN <= days <= DAYS_MAX):
+        raise ValidationError(f"days 需介於 {DAYS_MIN} 與 {DAYS_MAX}")
+    return days
+
+
+class DashboardSummaryView(APIView):
+    """市場序列彙整：指數、成交金額、漲跌家數、三大法人、融資餘額。
+
+    整包回應以 Redis 快取（key `dashboard:{days}`，前綴 swd:v1 由 CACHES 設定加上）；
+    快取命中則不重查 market 庫。
+    """
+
+    def get(self, request):
+        """回傳近 days 交易日的四序列；驗證錯誤 400 {"error": ...}。"""
+        days = _parse_days(request.query_params.get("days"))
+        cache_key = f"dashboard:{days}"
+
+        payload = cache.get(cache_key)
+        if payload is None:
+            rows = selectors.recent_market_daily(days)
+            payload = build_dashboard_summary(rows, days)
+            cache.set(cache_key, payload, timeout=CACHE_TTL)
+
+        return Response(payload)

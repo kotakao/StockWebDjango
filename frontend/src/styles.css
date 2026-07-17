@@ -1,0 +1,5 @@
+/* 全站樣式（spec §D2 驗收）：所有網頁 background 白色，作用於 body，
+   套用到既有與未來頁面（透過 base.html 載入的 src/main.js 匯入）。 */
+body {
+  background: #ffffff;
+}
