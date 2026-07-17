@@ -33,6 +33,7 @@ Python 3.12 / Django 5.2 LTS / DRF / PostgreSQL 16（自有資料）＋ SQLite `
 | `DATABASE_URL` | PostgreSQL 連線字串（`default` 庫） |
 | `REDIS_URL` | Redis（快取／Celery） |
 | `MARKET_DB_PATH` | `market.db` 路徑（宿主機實體檔；compose 作為 `:ro` 掛載來源） |
+| `WATCHLIST_USER_ID` | 自選股/持股頁對應的 Discord 使用者 ID（對應 `market.db` watchlist/holdings 的 `user_id`，預設 `0`） |
 | `POSTGRES_USER/PASSWORD/DB` | 僅 compose 的 postgres 服務使用 |
 
 ## 啟動方式
@@ -92,6 +93,18 @@ docker compose --profile full up -d --build
   - 近期資料表：近 20 個交易日快照（日期、收盤、漲跌%、PE、PB、殖利率）。
 
 > 前端為每頁獨立 Vue app（[`frontend/components/StockQuery.vue`](frontend/components/StockQuery.vue)，進入點 [`frontend/src/query.js`](frontend/src/query.js)）；僅取數渲染，商業邏輯在後端。
+
+## 功能：自選股
+
+導覽列「自選股」（`/watchlist/`）唯讀呈現 `market.db` 的 watchlist/holdings（派工 D5）。
+
+- **資料來源**：以 `WATCHLIST_USER_ID` 對應的 Discord 使用者為準，呼叫 `GET /api/watchlist/summary`。
+- **自選股表**：代號、收盤、漲跌%（紅漲綠跌，台股慣例）、PE、PB、殖利率。
+- **持股表**：代號、股數、均價、收盤、市值（`shares*close`）、未實現損益（`(close-avg_cost)*shares`）、報酬率（`(close-avg_cost)/avg_cost*100`；`avg_cost` 為 0/NULL 時顯示「—」）。
+- **容錯**：個別代號缺行情以「—」呈現，不影響整包；watchlist 與 holdings 皆空時顯示提示。
+- **唯讀**：本頁不提供任何編輯。**編輯請於 Discord `/watch` 或 Blazor 版操作**（依鐵律，本專案對 `market` 連線一律唯讀）。
+
+> 整包回應以 Redis 快取（key `swd:v1:watchlist:{user_id}`，TTL 10 分鐘）。前端為獨立 Vue app（[`frontend/components/Watchlist.vue`](frontend/components/Watchlist.vue)，進入點 [`frontend/src/watchlist.js`](frontend/src/watchlist.js)）。
 
 ## 前端建置
 

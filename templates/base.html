@@ -29,6 +29,11 @@
                {% if request.resolver_match.view_name == 'stocks:query' %}aria-current="page"{% endif %}
                href="{% url 'stocks:query' %}">查詢個股</a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link{% if request.resolver_match.view_name == 'watchlist:index' %} active{% endif %}"
+               {% if request.resolver_match.view_name == 'watchlist:index' %}aria-current="page"{% endif %}
+               href="{% url 'watchlist:index' %}">自選股</a>
+          </li>
         </ul>
       </div>
     </div>

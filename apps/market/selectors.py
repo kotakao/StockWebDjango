@@ -5,7 +5,15 @@
 
 from django.db.models import Max
 
-from .models import DailyQuote, MarketDaily, MonthlyRevenue, QuarterlyFinancial, Valuation
+from .models import (
+    DailyQuote,
+    Holding,
+    MarketDaily,
+    MonthlyRevenue,
+    QuarterlyFinancial,
+    Valuation,
+    Watchlist,
+)
 
 # 儀表板序列所需欄位（對照 market_daily）。
 _SUMMARY_FIELDS = (
@@ -79,6 +87,29 @@ def latest_monthly_revenue(code: str) -> dict | None:
         .order_by("-year_month")
         .values("year_month", "yoy_pct", "cum_yoy_pct")
         .first()
+    )
+
+
+# ---- 自選股與持股（D5）所需唯讀查詢：以 user_id 定位 ----
+
+
+def watchlist_codes(user_id: str) -> list[str]:
+    """某 user_id 的自選股代號清單（依 code 排序）；查無回空清單。"""
+    return list(
+        Watchlist.objects.using("market")
+        .filter(user_id=user_id)
+        .order_by("code")
+        .values_list("code", flat=True)
+    )
+
+
+def holdings_rows(user_id: str) -> list[dict]:
+    """某 user_id 的持股（code/shares/avg_cost，依 code 排序）；查無回空清單。"""
+    return list(
+        Holding.objects.using("market")
+        .filter(user_id=user_id)
+        .order_by("code")
+        .values("code", "shares", "avg_cost")
     )
 
 

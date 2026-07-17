@@ -77,6 +77,21 @@ CREATE TABLE IF NOT EXISTS quarterly_financials (
     eps              REAL,
     PRIMARY KEY (market, code, year_quarter)
 );
+
+CREATE TABLE IF NOT EXISTS watchlist (
+    user_id TEXT NOT NULL,
+    code    TEXT NOT NULL,
+    PRIMARY KEY (user_id, code)
+);
+
+CREATE TABLE IF NOT EXISTS holdings (
+    user_id    TEXT NOT NULL,
+    code       TEXT NOT NULL,
+    shares     REAL,
+    avg_cost   REAL,
+    updated_at TEXT,
+    PRIMARY KEY (user_id, code)
+);
 """
 
 

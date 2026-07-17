@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load django_vite %}
+
+{% block title %}自選股 - StockWeb{% endblock %}
+
+{% block content %}
+<div id="watchlist-app"></div>
+{% endblock %}
+
+{% block extra_js %}
+{% vite_asset 'src/watchlist.js' %}
+{% endblock %}

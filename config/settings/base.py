@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     "apps.market",
     "apps.dashboard",
     "apps.stocks",
+    "apps.watchlist",
 ]
 
 MIDDLEWARE = [
@@ -97,6 +98,9 @@ CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_TASK_ACKS_LATE = True
 CELERY_TIMEZONE = "Asia/Taipei"
+
+# ---- 自選股（D5）：對應 market.db watchlist/holdings 的 user_id（Discord 使用者 ID）----
+WATCHLIST_USER_ID = env("WATCHLIST_USER_ID", default="0")
 
 # ---- DRF 全域設定（JSON only、anon 60/min、統一 400 錯誤格式）----
 REST_FRAMEWORK = {

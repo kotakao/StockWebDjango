@@ -84,6 +84,39 @@ class MonthlyRevenue(models.Model):
         db_table = "monthly_revenue"
 
 
+class Watchlist(models.Model):
+    """watchlist：使用者自選股（由 Discord /watch 或 Blazor 版寫入）。PK(user_id, code)。
+
+    user_id 為 Discord 使用者 ID（TEXT）。本專案唯讀呈現，不提供編輯。
+    """
+
+    pk = models.CompositePrimaryKey("user_id", "code")
+    user_id = models.TextField()
+    code = models.CharField(max_length=8)
+
+    class Meta:
+        managed = False
+        db_table = "watchlist"
+
+
+class Holding(models.Model):
+    """holdings：使用者持股（由 Discord /watch 或 Blazor 版寫入）。PK(user_id, code)。
+
+    shares／avg_cost 容錯 NULL；updated_at 為寫入端維護的字串時間。本專案唯讀呈現。
+    """
+
+    pk = models.CompositePrimaryKey("user_id", "code")
+    user_id = models.TextField()
+    code = models.CharField(max_length=8)
+    shares = models.FloatField(null=True)
+    avg_cost = models.FloatField(null=True)
+    updated_at = models.TextField(null=True)
+
+    class Meta:
+        managed = False
+        db_table = "holdings"
+
+
 class QuarterlyFinancial(models.Model):
     """quarterly_financials：季度損益。PK(market, code, year_quarter)。"""
 
