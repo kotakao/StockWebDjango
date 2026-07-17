@@ -76,7 +76,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push。
 結尾加 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push。
 ```
 
-## ☐ D2：首頁儀表板（四圖卡，禁止拖動）
+## ☑ D2：首頁儀表板（四圖卡，禁止拖動）— commit `2d5f4fe`
 
 ```text
 你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支）。
@@ -180,3 +180,4 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push。
 
 - ✅ D0 專案骨架與環境 — commit `7e76301`（pytest 9 綠、ruff 無錯；本機無 docker/node，compose 實跑與前端 build 待有環境機器補驗，步驟見 docs/reports/D0-report.md）
 - ✅ D1 外框 Navbar 與兩頁面殼 — commit `eaf9c7e`（pytest 13 綠；test 設定 django-vite 改 dev_mode=True 以免除 manifest 依賴，僅限測試設定）
+- ✅ D2 首頁儀表板四圖卡＋全站白底 — commit `2d5f4fe`（pytest 27 綠；法人累積採全窗序列與 Blazor 版 W1 補強一致；前端渲染與真實 redis 待有環境補驗）
