@@ -334,6 +334,67 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
 回報：改動清單（檔案與重點）、新增測試說明、測試總數、commit hash。
 ```
 
+## ☐ D8：條件選股頁（最新交易日行情＋估值複合篩選）
+
+```text
+你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支）。
+請先閱讀 AGENT.md 與 docs/spec.md（§4 鐵律、§5/§6/§7）；一律繁體中文。
+嚴禁提交任何 .env 檔。工作區若有使用者未提交的變更勿動勿納入。
+前置：D1-D7 已完成；本機無 Node.js：前端只寫程式碼不 build，
+行為以 API 測試保障（與 spec §9 一致）。
+
+背景：market.db 的 daily_quotes（主鍵 market+date+code，欄位 name、
+open/high/low/close、change【漲跌絕對值，非百分比】、volume【成交股數】）
+與 valuation（主鍵 market+date+code，欄位 pe、dividend_yield、pb）皆有
+managed=False 模型可沿用（apps/market/models.py）。本專案依鐵律對
+market 連線一律唯讀。個股數約兩千檔，單日資料量小。
+
+需求：
+1. selectors 補：latest_quote_date()（daily_quotes 最大 date）與
+   quotes_with_valuation(date)：該日全部 daily_quotes 列 LEFT JOIN 同日
+   valuation（以 market+code 對齊；valuation 缺列時 pe/pb/dividend_yield
+   為 None）。可用兩次查詢在 Python 端以 dict 合併，擇簡。
+2. services 純函數 screen(rows, filters)：
+   - 衍生欄 change_pct＝change/(close-change)*100（前收＝close-change；
+     前收為 0/None 或 close/change 缺值時 change_pct 為 None）、
+     volume_lots＝volume/1000（張，volume None 時 None）
+   - 支援條件（全部選填）：pe_min/pe_max、pb_min/pb_max、yield_min、
+     change_pct_min/change_pct_max、volume_lots_min
+   - 條件比對時該欄為 None 的列一律不符合（有開該條件才排除）
+   - 回傳依 code 排序，上限 200 筆並附總符合數
+3. API：GET /api/screener/results?（上述條件為 query 參數）——
+   - 至少需帶一個條件，否則 400 {"error": "至少需指定一個篩選條件"}；
+     參數非數值回 400 {"error": ...}
+   - 回 {"date": 最新交易日, "total": 總符合數, "results": [...]}，每筆含
+     market、code、name、close、change_pct、pe、pb、dividend_yield、
+     volume_lots（數值容錯 null）
+   - 基底資料快取：quotes_with_valuation 結果以
+     key swd:v1:screener:base:{date}（前綴比照既有由 CACHES 加上，
+     TTL 10 分鐘）整包快取，篩選本身每請求即時計算不快取
+   - daily_quotes 無任何資料時回 200 {"date": null, "total": 0,
+     "results": []}
+4. 前端：Navbar 新增「選股」（/screener，「行事曆」之後，active 高亮
+   比照既有）；頁面 Vue app：條件表單（PE 上/下限、PB 上/下限、
+   殖利率下限、漲跌% 上/下限、成交張數下限，皆數字輸入可留空）＋
+   查詢按鈕（前端擋「全部留空」）；結果 Bootstrap table（代號、名稱、
+   收盤、漲跌%、PE、PB、殖利率、成交張數），漲跌% 紅漲綠跌、NULL 顯示
+   「—」；顯示「符合 N 檔（顯示前 200）」；載入中/錯誤/無符合三態。
+   vite 進入點比照既有頁面。
+5. 鐵律不變：不動 config/routers.py 與唯讀機制；不新增資料表；
+   對 market 連線嚴禁任何寫入。
+6. 測試：services screen 單元測試（各條件獨立與複合、change_pct 計算
+   含前收 0/缺值容錯、None 欄位在開條件時被排除、上限 200 與 total）；
+   selectors join 測試（valuation 缺列容錯）；API 驗證（無條件 400、
+   非數值 400）、快取行為（基底快取第二次不重查）、無資料 200 測試；
+   頁面路由與 Navbar active 測試。
+
+驗收：pytest 全綠（既有 93 只增不減）；ruff 無錯誤；README 補
+「條件選股」使用說明。完成後以 feat 前綴 commit（訊息含「D8」，結尾加
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
+不要動 todolist.md（由管理流程更新）。
+回報：改動清單（檔案與重點）、新增測試說明、測試總數、commit hash。
+```
+
 ---
 
 ## 已完成（記錄用）
