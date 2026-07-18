@@ -50,10 +50,9 @@ services:
   web:
     build: .
     profiles: ["full"]
-    command: >
-      sh -c "python manage.py collectstatic --noinput &&
-             gunicorn config.wsgi:application
-             --workers 2 --threads 2 --timeout 60 --bind 0.0.0.0:8000"
+    # 單行 command：先前 `>` 折疊字串因續行縮排較深而保留換行，sh -c 將換行視為
+    # 指令分隔，gunicorn 參數（含 --bind）被截斷改綁 127.0.0.1 導致 nginx 502。
+    command: sh -c "python manage.py collectstatic --noinput && gunicorn config.wsgi:application --workers 2 --threads 2 --timeout 60 --bind 0.0.0.0:8000"
     environment: *web-env
     volumes:
       # market.db 唯讀掛載（來源為宿主機 MARKET_DB_PATH，容器內固定 /data/market.db）
