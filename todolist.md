@@ -279,6 +279,61 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
 回報：改動清單（檔案與重點）、新增測試說明、測試總數、commit hash。
 ```
 
+## ☐ D7：行事曆頁（月曆檢視除權息與法說會）
+
+```text
+你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支）。
+請先閱讀 AGENT.md 與 docs/spec.md（§4 鐵律、§5/§6/§7）；一律繁體中文。
+嚴禁提交任何 .env 檔。工作區若有使用者未提交的變更勿動勿納入。
+前置：D1-D6 已完成；本機無 Node.js：前端只寫程式碼不 build，
+行為以 API 測試保障（與 spec §9 一致）。
+
+背景：market.db 兩個日期事件來源（本專案依鐵律對 market 連線一律唯讀）：
+- dividend_events（StockDCBot 功能區 I 入庫）——主鍵 market+code+ex_date，
+  欄位另有 name、event_type、cash_dividend（REAL）、stock_ratio（REAL），
+  ex_date 為 ISO YYYY-MM-DD，缺漏容錯 NULL。
+- investor_conferences——D6 已建 managed=False 模型與 selectors，
+  fact_date 為法說會召開日。
+
+需求：
+1. apps/market 補 managed=False 模型 DividendEvent（複合主鍵比照既有
+   慣例）與 selectors：
+   - dividend_events_between(start, end)：ex_date 介於 start 與 end
+     （含），依 ex_date、market、code 排序
+   - conference_dates_between(start, end)：fact_date 同上區間，依
+     fact_date、market、code 排序（可沿用/擴充 D6 selectors，擇簡）
+2. API：GET /api/calendar/summary?month=YYYY-MM（預設當月；格式不符或
+   年份超出 2020~2099 回 400 {"error": ...}）——回
+   {"month": "YYYY-MM", "dividends": [...], "conferences": [...]}：
+   dividends 每筆含 market、code、name、event_type、ex_date、
+   cash_dividend、stock_ratio；conferences 每筆含 market、code、name、
+   subject、fact_date。皆空回空清單（200）。整包 Redis 快取
+   （key swd:v1:calendar:{month}，前綴比照既有由 CACHES 加上，TTL 10 分鐘）。
+3. 前端：Navbar 新增「行事曆」（/calendar，「法說會」之後，active 高亮
+   比照既有）；頁面 Vue app 月曆格線（週一至週日七欄，純前端以
+   month 資料組格）：
+   - 上／下月切換按鈕與當月標題（YYYY 年 M 月），切換即重新呼叫 API
+   - 每日格內以小徽章列出事件：除權息（event_type＋代號，滑鼠 title
+     顯示名稱與配息/配股數）與法說會（「法說」＋代號，title 顯示公司
+     與主旨）；今日格高亮
+   - 載入中/錯誤/無事件三態；頁尾註明資料性質（法說會為每日快照自
+     部署起累積）
+   vite 進入點比照既有頁面。月曆組格為前端邏輯，不做前端單元測試
+   （spec §9），後端以 API 測試保障。
+4. 鐵律不變：不動 config/routers.py 與唯讀機制；不新增資料表；
+   對 market 連線嚴禁任何寫入。
+5. 測試：selectors 日期窗（含月初月底邊界、跨月不入列）單元測試
+   （fixture 補建 dividend_events 表——僅測試 DDL）；API month 驗證
+   （格式錯誤/2019-12/2100-01 → 400、預設當月、邊界 2020-01/2099-12
+   → 200）、快取行為、空清單測試；頁面路由與 Navbar active 測試。
+
+驗收：pytest 全綠（既有 73 只增不減）；ruff 無錯誤；README 補
+「行事曆」使用說明。完成後以 feat 前綴 commit（訊息含「D7」，結尾加
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
+不要動 todolist.md（由管理流程更新）。
+回報：改動清單（檔案與重點）、新增測試說明、測試總數、commit hash。
+```
+
 ---
 
 ## 已完成（記錄用）
