@@ -18,6 +18,7 @@ export default defineConfig({
         watchlist: resolve(__dirname, "src/watchlist.js"),
         conferences: resolve(__dirname, "src/conferences.js"),
         calendar: resolve(__dirname, "src/calendar.js"),
+        screener: resolve(__dirname, "src/screener.js"),
       },
     },
   },

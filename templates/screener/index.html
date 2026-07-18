@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load django_vite %}
+
+{% block title %}條件選股 - StockWeb{% endblock %}
+
+{% block content %}
+<div id="screener-app"></div>
+{% endblock %}
+
+{% block extra_js %}
+{% vite_asset 'src/screener.js' %}
+{% endblock %}

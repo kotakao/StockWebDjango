@@ -188,6 +188,37 @@ def conference_dates_between(start: str, end: str) -> list[dict]:
     )
 
 
+# ---- 條件選股（D8）所需唯讀查詢：最新交易日全體行情 LEFT JOIN 同日估值 ----
+
+# 條件選股基底所需行情欄位（對照 daily_quotes）。
+_SCREENER_QUOTE_FIELDS = ("market", "code", "name", "close", "change", "volume")
+
+
+def quotes_with_valuation(quote_date: str) -> list[dict]:
+    """某交易日全體 daily_quotes 列，LEFT JOIN 同日 valuation（以 market+code 對齊）。
+
+    valuation 缺列時 pe/pb/dividend_yield 為 None。以兩次查詢在 Python 端合併
+    （個股約兩千檔、單日資料量小，dict 對齊即足）。回傳每列含行情欄位＋pe/pb/dividend_yield。
+    """
+    quotes = list(
+        DailyQuote.objects.using("market")
+        .filter(date=quote_date)
+        .values(*_SCREENER_QUOTE_FIELDS)
+    )
+    vals = {
+        (v["market"], v["code"]): v
+        for v in Valuation.objects.using("market")
+        .filter(date=quote_date)
+        .values("market", "code", "pe", "pb", "dividend_yield")
+    }
+    for q in quotes:
+        v = vals.get((q["market"], q["code"]))
+        q["pe"] = v["pe"] if v else None
+        q["pb"] = v["pb"] if v else None
+        q["dividend_yield"] = v["dividend_yield"] if v else None
+    return quotes
+
+
 def latest_quarterly_financial(code: str) -> dict | None:
     """取某代號最新季損益（含營收與毛利/營益/EPS 原始值，比率由 service 計算）；查無回 None。"""
     return (

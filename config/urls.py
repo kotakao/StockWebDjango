@@ -13,9 +13,11 @@ urlpatterns = [
     path("api/watchlist/", include("apps.watchlist.api_urls")),
     path("api/conferences/", include("apps.conferences.api_urls")),
     path("api/calendar/", include("apps.calendar.api_urls")),
+    path("api/screener/", include("apps.screener.api_urls")),
     path("stocks/", include("apps.stocks.urls")),
     path("watchlist/", include("apps.watchlist.urls")),
     path("conferences/", include("apps.conferences.urls")),
     path("calendar/", include("apps.calendar.urls")),
+    path("screener/", include("apps.screener.urls")),
     path("", include("apps.dashboard.urls")),
 ]

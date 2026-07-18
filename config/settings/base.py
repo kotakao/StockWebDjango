@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "apps.watchlist",
     "apps.conferences",
     "apps.calendar",
+    "apps.screener",
 ]
 
 MIDDLEWARE = [

@@ -44,6 +44,11 @@
                {% if request.resolver_match.view_name == 'calendar:index' %}aria-current="page"{% endif %}
                href="{% url 'calendar:index' %}">行事曆</a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link{% if request.resolver_match.view_name == 'screener:index' %} active{% endif %}"
+               {% if request.resolver_match.view_name == 'screener:index' %}aria-current="page"{% endif %}
+               href="{% url 'screener:index' %}">選股</a>
+          </li>
         </ul>
       </div>
     </div>

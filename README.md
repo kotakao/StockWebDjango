@@ -130,6 +130,19 @@ docker compose --profile full up -d --build
 
 > 整包回應以 Redis 快取（key `swd:v1:calendar:{month}`，TTL 10 分鐘）。前端為獨立 Vue app（[`frontend/components/Calendar.vue`](frontend/components/Calendar.vue)，進入點 [`frontend/src/calendar.js`](frontend/src/calendar.js)）。
 
+## 功能：條件選股
+
+導覽列「選股」（`/screener/`）以 `market.db` 最新交易日的行情（`daily_quotes`）＋估值（`valuation`）做複合條件篩選（派工 D8）。
+
+- **資料來源**：呼叫 `GET /api/screener/results?<條件>`（下列條件皆選填，至少需帶一個，否則回 `400 {"error": "至少需指定一個篩選條件"}`；條件值非數值回 `400 {"error": ...}`）。
+- **支援條件**：`pe_min`／`pe_max`、`pb_min`／`pb_max`、`yield_min`、`change_pct_min`／`change_pct_max`、`volume_lots_min`。
+- **衍生欄**：漲跌%＝`change/(前收)*100`（前收＝`close-change`）；成交張數＝`volume/1000`。前收為 0 或來源缺值時該欄為 `null`；比對時該欄為 `null` 的列不符合（僅在有開該條件時排除）。
+- **結果表**：代號、名稱、收盤、漲跌%（紅漲綠跌，台股慣例）、PE、PB、殖利率、成交張數；`null` 顯示「—」。依代號排序，顯示「符合 N 檔（顯示前 200）」，結果上限 200 筆。
+- **三態**：載入中／錯誤／無符合皆有明確提示；前端於「全部留空」時擋下查詢。
+- **資料性質**：僅為最新交易日單日快照的複合篩選（營收 YoY 與法人連買等進階條件留待後續）；本頁唯讀（依鐵律，本專案對 `market` 連線一律唯讀）。
+
+> 基底資料（最新交易日全體行情＋估值）整包以 Redis 快取（key `swd:v1:screener:base:{date}`，TTL 10 分鐘）；篩選本身每請求即時計算不快取。前端為獨立 Vue app（[`frontend/components/Screener.vue`](frontend/components/Screener.vue)，進入點 [`frontend/src/screener.js`](frontend/src/screener.js)）。
+
 ## 前端建置
 
 ```bash
