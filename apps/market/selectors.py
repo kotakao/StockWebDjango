@@ -9,6 +9,7 @@ from django.db.models import Max
 
 from .models import (
     DailyQuote,
+    DividendEvent,
     Holding,
     InvestorConference,
     MarketDaily,
@@ -144,6 +145,46 @@ def recent_conference_announcements(limit: int = 20) -> list[dict]:
         InvestorConference.objects.using("market")
         .order_by("-announce_date", "-announce_time")
         .values(*_CONFERENCE_FIELDS)[:limit]
+    )
+
+
+# ---- 行事曆（D7）所需唯讀查詢：dividend_events 與 investor_conferences 的日期窗 ----
+
+# 除權息回傳欄位（對照 dividend_events；ex_date ISO 字串可直接比較排序）。
+_DIVIDEND_FIELDS = (
+    "market",
+    "code",
+    "name",
+    "event_type",
+    "ex_date",
+    "cash_dividend",
+    "stock_ratio",
+)
+
+
+def dividend_events_between(start: str, end: str) -> list[dict]:
+    """除權息事件：ex_date 介於 start 與 end（含），依 ex_date、market、code 排序。
+
+    start/end 為 ISO YYYY-MM-DD 字串（字典序即時序）；區間外不入列，空區間回空清單。
+    """
+    return list(
+        DividendEvent.objects.using("market")
+        .filter(ex_date__gte=start, ex_date__lte=end)
+        .order_by("ex_date", "market", "code")
+        .values(*_DIVIDEND_FIELDS)
+    )
+
+
+def conference_dates_between(start: str, end: str) -> list[dict]:
+    """法說會日期：fact_date 介於 start 與 end（含），依 fact_date、market、code 排序。
+
+    fact_date 為 NULL 者不符 __gte，自然排除。回傳含月曆所需欄位。
+    """
+    return list(
+        InvestorConference.objects.using("market")
+        .filter(fact_date__gte=start, fact_date__lte=end)
+        .order_by("fact_date", "market", "code")
+        .values("market", "code", "name", "subject", "fact_date")
     )
 
 

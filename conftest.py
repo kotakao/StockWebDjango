@@ -93,6 +93,17 @@ CREATE TABLE IF NOT EXISTS holdings (
     PRIMARY KEY (user_id, code)
 );
 
+CREATE TABLE IF NOT EXISTS dividend_events (
+    market        TEXT NOT NULL DEFAULT 'TWSE',
+    code          TEXT NOT NULL,
+    ex_date       TEXT NOT NULL,
+    name          TEXT,
+    event_type    TEXT,
+    cash_dividend REAL,
+    stock_ratio   REAL,
+    PRIMARY KEY (market, code, ex_date)
+);
+
 CREATE TABLE IF NOT EXISTS investor_conferences (
     market         TEXT NOT NULL DEFAULT 'TWSE',
     code           TEXT NOT NULL,

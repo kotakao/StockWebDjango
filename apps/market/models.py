@@ -141,6 +141,27 @@ class InvestorConference(models.Model):
         db_table = "investor_conferences"
 
 
+class DividendEvent(models.Model):
+    """dividend_events：除權息事件（StockDCBot 功能區 I 入庫）。PK(market, code, ex_date)。
+
+    ex_date 為除權息交易日 ISO YYYY-MM-DD；cash_dividend/stock_ratio 容錯 NULL。
+    本專案唯讀呈現。
+    """
+
+    pk = models.CompositePrimaryKey("market", "code", "ex_date")
+    market = models.CharField(max_length=8)
+    code = models.CharField(max_length=8)
+    ex_date = models.CharField(max_length=10)
+    name = models.TextField(null=True)
+    event_type = models.TextField(null=True)
+    cash_dividend = models.FloatField(null=True)
+    stock_ratio = models.FloatField(null=True)
+
+    class Meta:
+        managed = False
+        db_table = "dividend_events"
+
+
 class QuarterlyFinancial(models.Model):
     """quarterly_financials：季度損益。PK(market, code, year_quarter)。"""
 

@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "apps.stocks",
     "apps.watchlist",
     "apps.conferences",
+    "apps.calendar",
 ]
 
 MIDDLEWARE = [

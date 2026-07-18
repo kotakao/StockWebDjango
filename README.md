@@ -118,6 +118,18 @@ docker compose --profile full up -d --build
 
 > 整包回應以 Redis 快取（key `swd:v1:conferences:{days}`，TTL 10 分鐘）。前端為獨立 Vue app（[`frontend/components/Conferences.vue`](frontend/components/Conferences.vue)，進入點 [`frontend/src/conferences.js`](frontend/src/conferences.js)）。
 
+## 功能：行事曆
+
+導覽列「行事曆」（`/calendar/`）以月曆檢視 `market.db` 的除權息（`dividend_events`）與法說會（`investor_conferences`）日期（派工 D7）。
+
+- **資料來源**：呼叫 `GET /api/calendar/summary?month=YYYY-MM`（預設當月；格式不符或年份超出 2020~2099 回 `400 {"error": ...}`）。
+- **月曆格線**：週一至週日七欄，純前端以該月資料組格；上／下月切換即重新呼叫 API，標題顯示「YYYY 年 M 月」，今日格高亮。
+- **每日徽章**：除權息以紅色徽章（`event_type`＋代號，滑鼠停留顯示公司與配息/配股）；法說會以藍色徽章（「法說」＋代號，停留顯示公司與主旨）。
+- **三態**：載入中／錯誤／無事件皆有明確提示。
+- **資料性質**：除權息來自每交易日盤後入庫；法說會為每日快照過濾入庫、自部署起累積；本頁唯讀（依鐵律，本專案對 `market` 連線一律唯讀）。
+
+> 整包回應以 Redis 快取（key `swd:v1:calendar:{month}`，TTL 10 分鐘）。前端為獨立 Vue app（[`frontend/components/Calendar.vue`](frontend/components/Calendar.vue)，進入點 [`frontend/src/calendar.js`](frontend/src/calendar.js)）。
+
 ## 前端建置
 
 ```bash

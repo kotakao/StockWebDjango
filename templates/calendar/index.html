@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load django_vite %}
+
+{% block title %}行事曆 - StockWeb{% endblock %}
+
+{% block content %}
+<div id="calendar-app"></div>
+{% endblock %}
+
+{% block extra_js %}
+{% vite_asset 'src/calendar.js' %}
+{% endblock %}
