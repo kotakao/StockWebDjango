@@ -9,4 +9,4 @@ redis>=5                    # Redis 用戶端（django-redis / Celery 依賴）
 celery>=5.4                 # 非同步任務（broker/result = Redis）
 django-vite>=3              # 注入 Vite 建置產物到 Django template
 psycopg[binary]>=3.2        # PostgreSQL 驅動（default 庫）
-gunicorn>=23                # WSGI 伺服器（正式）
+gunicorn>=23,<24            # WSGI 伺服器（正式）；鎖 23 系列：26 的 bind 行為不相容（無視 --bind 綁 127.0.0.1 致 502）
