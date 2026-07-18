@@ -32,7 +32,8 @@ Python 3.12 / Django 5.2 LTS / DRF / PostgreSQL 16（自有資料）＋ SQLite `
 | `ALLOWED_HOSTS` | 允許主機（逗號分隔） |
 | `DATABASE_URL` | PostgreSQL 連線字串（`default` 庫） |
 | `REDIS_URL` | Redis（快取／Celery） |
-| `MARKET_DB_PATH` | `market.db` 路徑（宿主機實體檔；compose 作為 `:ro` 掛載來源） |
+| `MARKET_DB_PATH` | `market.db` 路徑（宿主機 runserver 使用；唯讀由連線層 `query_only`＋Router 保證） |
+| `MARKET_DB_DIR` | `market.db` 所在目錄（僅 compose 掛載用：WAL 讀取需在同目錄建 `-wal`/`-shm`，故掛目錄且可寫） |
 | `WATCHLIST_USER_ID` | 自選股/持股頁對應的 Discord 使用者 ID（對應 `market.db` watchlist/holdings 的 `user_id`，預設 `0`） |
 | `POSTGRES_USER/PASSWORD/DB` | 僅 compose 的 postgres 服務使用 |
 
@@ -68,7 +69,7 @@ docker compose --profile full up -d --build
 ```
 
 - 對外入口：<http://localhost/>（Nginx→web）；`/static/*` 由 Nginx 直接服務。
-- `market.db` 以 `MARKET_DB_PATH` 為來源、`:ro` 掛載於容器 `/data/market.db`。
+- `market.db` 以 `MARKET_DB_DIR`（所在目錄）掛載於容器 `/data`（容器內路徑仍為 `/data/market.db`）。掛目錄且可寫是因 SQLite WAL 讀取需在同目錄建 `-wal`/`-shm` 輔助檔（檔案掛載 `:ro` 與 WAL 不相容）；唯讀保證在連線層（`PRAGMA query_only`＋Database Router 雙保險），非檔案系統層。
 
 > 註：Compose profile 語意無法讓「plain `docker compose up`」啟動全部、又讓「`--profile dev up`」只啟動子集，故兩情境皆以明確 `--profile` 指定。
 

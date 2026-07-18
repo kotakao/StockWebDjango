@@ -55,8 +55,10 @@ services:
     command: sh -c "python manage.py collectstatic --noinput && gunicorn config.wsgi:application --workers 2 --threads 2 --timeout 60 --bind 0.0.0.0:8000"
     environment: *web-env
     volumes:
-      # market.db 唯讀掛載（來源為宿主機 MARKET_DB_PATH，容器內固定 /data/market.db）
-      - ${MARKET_DB_PATH}:/data/market.db:ro
+      # market.db 掛目錄且可寫（容器內 MARKET_DB_PATH 仍為 /data/market.db）：
+      # WAL 模式讀取需在同目錄建 -wal/-shm 輔助檔，檔案系統層 :ro 與 WAL 先天不相容；
+      # 唯讀保證由連線層 PRAGMA query_only＋Database Router 雙保險負責（spec §4 鐵律測試）。
+      - ${MARKET_DB_DIR}:/data
       - static_data:/app/staticfiles
     depends_on:
       postgres:
@@ -75,7 +77,8 @@ services:
     command: celery -A config worker -l info --concurrency 2
     environment: *web-env
     volumes:
-      - ${MARKET_DB_PATH}:/data/market.db:ro
+      # 同 web：掛目錄且可寫（WAL 需建 -wal/-shm；唯讀保證在連線層，見 web 服務註解）
+      - ${MARKET_DB_DIR}:/data
     depends_on:
       postgres:
         condition: service_healthy
