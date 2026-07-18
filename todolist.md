@@ -334,7 +334,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
 回報：改動清單（檔案與重點）、新增測試說明、測試總數、commit hash。
 ```
 
-## ☐ D8：條件選股頁（最新交易日行情＋估值複合篩選）
+## ☑ D8：條件選股頁（最新交易日行情＋估值複合篩選）— commit `89b7b07`
 
 ```text
 你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支）。
@@ -407,6 +407,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
 - ✅ D5 自選股與持股頁（唯讀呈現）— commit `bea91cf`（pytest 55 綠；實機 API/頁面/空清單 200 驗證過；真實 watchlist/holdings 目前無資料，資料路徑由單元測試保障；前端渲染待有 Node 環境補驗）
 - ✅ D6 法說會資訊頁（唯讀呈現）— commit `2d6a3c6`＋fix `b50981c`（pytest 73 綠；fix 為 D5 測試隔離補強：test 設定固定 WATCHLIST_USER_ID="0" 免受本機 .env 影響；實機以真實 investor_conferences 驗證 upcoming 13/recent 18、頁面 200、days=91 → 400；前端渲染待有 Node 環境補驗）
 - ✅ D7 行事曆頁（月曆檢視除權息與法說會）— commit `1eaca6e`（pytest 93 綠；實機以真實資料驗證 2026-07 除權息 604/法說 16、2026-08 為 25/2、month=2019-12 → 400、頁面 200；前端月曆渲染待有 Node 環境補驗）
+- ✅ D8 條件選股頁（行情＋估值複合篩選）— commit `89b7b07`（pytest 115 綠；沿用既有 latest_trade_date() 未增同義函數；實機驗證殖利率≥6+PE≤10 → 33 檔、漲幅≥9% → 10 檔、無條件/非數值 → 400、頁面 200；前端渲染待有 Node 環境補驗）
 
 ### 待補驗清單（本機無 node/docker/真實 redis+postgres，集中於有環境機器一次補驗）
 
