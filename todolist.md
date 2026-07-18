@@ -409,9 +409,17 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
 - ✅ D7 行事曆頁（月曆檢視除權息與法說會）— commit `1eaca6e`（pytest 93 綠；實機以真實資料驗證 2026-07 除權息 604/法說 16、2026-08 為 25/2、month=2019-12 → 400、頁面 200；前端月曆渲染待有 Node 環境補驗）
 - ✅ D8 條件選股頁（行情＋估值複合篩選）— commit `89b7b07`（pytest 115 綠；沿用既有 latest_trade_date() 未增同義函數；實機驗證殖利率≥6+PE≤10 → 33 檔、漲幅≥9% → 10 檔、無條件/非數值 → 400、頁面 200；前端渲染待有 Node 環境補驗）
 
-### 待補驗清單（本機無 node/docker/真實 redis+postgres，集中於有環境機器一次補驗）
+### 待補驗清單（2026-07-19 大部分已於 Docker 機補驗完成）
 
-1. `npm install && npm run build`（frontend/）＋瀏覽器實測三頁渲染與查詢輪詢 UX
-2. `docker compose --profile full up -d --build` 全套實跑（步驟見 docs/reports/D0-report.md 文末）
-3. StockSnapshot migration 對真實 PostgreSQL 實跑
-4. 真實 redis 下的快取與 Celery worker 行為抽查
+1. ~~`docker compose --profile full up -d --build` 全套實跑~~ ✅ 已補驗——過程中修正三個 D0 遺留缺陷：
+   `c7bd112`（gunicorn 鎖版 23 系列，依 spec §2 版本基準）、
+   `e7dbb8d`（compose web command YAML 折疊換行截斷 gunicorn 參數致 nginx 502）、
+   `4dfb84b`（market.db WAL 與 :ro 檔案掛載先天不相容——改掛目錄可寫
+   `${MARKET_DB_DIR}:/data`，唯讀保證回歸連線層 query_only＋Router 雙保險；
+   .env 需新增 MARKET_DB_DIR）。修正後全套五容器綠、六頁 200、
+   儀表板/選股 API 以真實資料驗證正確。
+2. ~~瀏覽器頁面實渲染~~ ✅ 已補驗（容器內建置的前端）——首頁四圖卡與行事曆
+   月曆格線（真實除權息徽章）實際渲染正確；其餘頁另抽驗 200 與資產注入。
+3. StockSnapshot migration 對真實 PostgreSQL 實跑 ✅（compose dev 驗收時已跑過）
+4. 尚待：本機 `npm run dev` HMR 開發流（需裝 Node）；Celery worker 實跑抽查
+   （202→快照落庫→200 全鏈路，目前由 EAGER 測試保障）
