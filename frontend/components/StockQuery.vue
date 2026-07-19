@@ -20,12 +20,20 @@ let timer = null;
 const latest = computed(() => result.value?.latest ?? null);
 const recent = computed(() => result.value?.recent ?? []);
 
+// 月營收對比（獨立狀態，失敗不影響 summary 區塊）
+const revenueMonths = ref([]);
+const revenueError = ref("");
+
 // 數值格式化：NULL/undefined 一律顯示「—」。
 function fmtNum(v, digits = 2) {
   return v === null || v === undefined ? "—" : Number(v).toFixed(digits);
 }
 function fmtPct(v, digits = 2) {
   return v === null || v === undefined ? "—" : `${Number(v).toFixed(digits)}%`;
+}
+// 千元 → 億元（÷100000），兩位小數；NULL/undefined 顯示「—」。
+function fmtYi(v) {
+  return v === null || v === undefined ? "—" : (Number(v) / 100000).toFixed(2);
 }
 // 漲跌色（台股慣例：紅漲綠跌）；0 或缺值不上色。
 function changeClass(v) {
@@ -87,9 +95,28 @@ async function runFetch(code) {
     }
     result.value = await resp.json();
     state.value = "ready";
+    fetchRevenue(code); // summary 就緒後併行取月營收（失敗不影響上方）
   } catch (err) {
     errorMsg.value = err.message || "載入失敗";
     state.value = "error";
+  }
+}
+
+// 月營收對比：獨立呼叫，錯誤僅記在 revenueError，不動 summary 區塊。
+async function fetchRevenue(code) {
+  revenueError.value = "";
+  revenueMonths.value = [];
+  try {
+    const resp = await fetch(`/api/stocks/${encodeURIComponent(code)}/revenue`);
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      revenueError.value = body.error || `HTTP ${resp.status}`;
+      return;
+    }
+    const data = await resp.json();
+    revenueMonths.value = data.months ?? [];
+  } catch (err) {
+    revenueError.value = err.message || "月營收載入失敗";
   }
 }
 
@@ -103,6 +130,8 @@ function submit() {
   clearTimer();
   pollCount.value = 0;
   result.value = null;
+  revenueMonths.value = [];
+  revenueError.value = "";
   queriedCode.value = code;
   state.value = "loading";
   runFetch(code);
@@ -214,6 +243,39 @@ onUnmounted(clearTimer);
               <td class="text-end">{{ fmtNum(row.pe) }}</td>
               <td class="text-end">{{ fmtNum(row.pb) }}</td>
               <td class="text-end">{{ fmtPct(row.dividend_yield) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- 月營收對比（monthly_revenue 全月份，新到舊） -->
+      <h2 class="h6 mb-2 mt-4">月營收對比</h2>
+      <div v-if="revenueError" class="alert alert-warning py-2" role="alert">
+        月營收載入失敗：{{ revenueError }}
+      </div>
+      <p v-else-if="revenueMonths.length === 0" class="text-muted">
+        尚無月營收資料（自部署起逐月累積）
+      </p>
+      <div v-else class="table-responsive">
+        <table class="table table-sm table-striped align-middle">
+          <thead>
+            <tr>
+              <th>月份</th>
+              <th class="text-end">營收（億元）</th>
+              <th class="text-end">月增%</th>
+              <th class="text-end">年增%</th>
+              <th class="text-end">累計營收（億元）</th>
+              <th class="text-end">累計年增%</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="m in revenueMonths" :key="m.year_month">
+              <td>{{ m.year_month }}</td>
+              <td class="text-end">{{ fmtYi(m.revenue) }}</td>
+              <td class="text-end">{{ fmtPct(m.mom_pct) }}</td>
+              <td class="text-end" :class="changeClass(m.yoy_pct)">{{ fmtPct(m.yoy_pct) }}</td>
+              <td class="text-end">{{ fmtYi(m.cum_revenue) }}</td>
+              <td class="text-end" :class="changeClass(m.cum_yoy_pct)">{{ fmtPct(m.cum_yoy_pct) }}</td>
             </tr>
           </tbody>
         </table>

@@ -94,6 +94,30 @@ def latest_monthly_revenue(code: str) -> dict | None:
     )
 
 
+# 月營收對比表（D9）回傳欄位（year_month ISO YYYY-MM 字典序即時序）。
+_REVENUE_ROW_FIELDS = (
+    "year_month",
+    "revenue",
+    "mom_pct",
+    "yoy_pct",
+    "cum_revenue",
+    "cum_yoy_pct",
+)
+
+
+def monthly_revenue_rows(code: str) -> list[dict]:
+    """取某代號「全部」月份的月營收列，依 year_month 新到舊；查無回空清單。
+
+    每檔每年至多 12 筆、量小，不設筆數上限（spec §12 D9）。
+    """
+    return list(
+        MonthlyRevenue.objects.using("market")
+        .filter(code=code)
+        .order_by("-year_month")
+        .values(*_REVENUE_ROW_FIELDS)
+    )
+
+
 # ---- 自選股與持股（D5）所需唯讀查詢：以 user_id 定位 ----
 
 

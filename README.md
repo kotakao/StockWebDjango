@@ -92,6 +92,7 @@ docker compose --profile full up -d --build
 - **結果（200）**：
   - 指標卡列：收盤與漲跌%（紅漲綠跌，台股慣例）、本益比、股價淨值比、殖利率、月營收 YoY、累計營收 YoY、毛利率、營業利益率、EPS；每卡標註資料基準（交易日／營收月份／財報季），數值缺漏顯示「—」。
   - 近期資料表：近 20 個交易日快照（日期、收盤、漲跌%、PE、PB、殖利率）。
+  - 月營收對比表（派工 D9）：summary 就緒後併行呼叫 `GET /api/stocks/{code}/revenue`，列出該代號於 `monthly_revenue` 的**全部**月份（新到舊）：月份、營收（億元＝千元÷100000，兩位小數）、月增%、年增%、累計營收（億元）、累計年增%；NULL 顯示「—」，年增率紅正綠負（台股慣例）。資料自部署起逐月累積，空清單顯示「尚無月營收資料」。此表獨立錯誤處理，載入失敗不影響上方 summary 區塊。
 
 > 前端為每頁獨立 Vue app（[`frontend/components/StockQuery.vue`](frontend/components/StockQuery.vue)，進入點 [`frontend/src/query.js`](frontend/src/query.js)）；僅取數渲染，商業邏輯在後端。
 

@@ -21,6 +21,7 @@ from .tasks import refresh_snapshot
 CODE_RE = re.compile(r"^[A-Za-z0-9]{4,6}$")  # 代號：4-6 位英數
 CACHE_TTL = 600  # 10 分鐘（spec §7）
 CACHE_KEY = "stock:{code}"  # 前綴 swd:v1 由 CACHES 設定加上
+REVENUE_CACHE_KEY = "stock:revenue:{code}"  # 月營收對比整包快取（前綴同上）
 RECENT_LIMIT = 20  # 近 N 個交易日快照
 
 
@@ -77,3 +78,25 @@ class StockSummaryView(APIView):
 
         refresh_snapshot.delay(code)
         return Response({"status": "processing"}, status=202)
+
+
+class StockRevenueView(APIView):
+    """個股月營收對比：monthly_revenue 全部月份列（新到舊）。
+
+    - code 格式錯（非 4-6 位英數）→ 400 {"error": ...}。
+    - 查無資料 → 200 空清單（代號存在與否由 summary API 把關，本端點單純反映現況）。
+    - 整包 Redis 快取（key stock:revenue:{code}，前綴 swd:v1 由 CACHES 加上，TTL 10 分）。
+    """
+
+    def get(self, request, code):
+        """回 {"code": ..., "months": [...]}，月份新到舊。"""
+        code = _validate_code(code)
+        cache_key = REVENUE_CACHE_KEY.format(code=code)
+
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        payload = {"code": code, "months": selectors.monthly_revenue_rows(code)}
+        cache.set(cache_key, payload, timeout=CACHE_TTL)
+        return Response(payload)
