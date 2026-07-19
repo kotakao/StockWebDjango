@@ -395,7 +395,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
 回報：改動清單（檔案與重點）、新增測試說明、測試總數、commit hash。
 ```
 
-## ☐ D9：查詢個股月營收對比表（monthly_revenue 全月份）
+## ☑ D9：查詢個股月營收對比表（monthly_revenue 全月份）— commit `425dda9`
 
 ```text
 你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支）。
@@ -457,6 +457,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
 - ✅ D6 法說會資訊頁（唯讀呈現）— commit `2d6a3c6`＋fix `b50981c`（pytest 73 綠；fix 為 D5 測試隔離補強：test 設定固定 WATCHLIST_USER_ID="0" 免受本機 .env 影響；實機以真實 investor_conferences 驗證 upcoming 13/recent 18、頁面 200、days=91 → 400；前端渲染待有 Node 環境補驗）
 - ✅ D7 行事曆頁（月曆檢視除權息與法說會）— commit `1eaca6e`（pytest 93 綠；實機以真實資料驗證 2026-07 除權息 604/法說 16、2026-08 為 25/2、month=2019-12 → 400、頁面 200；前端月曆渲染待有 Node 環境補驗）
 - ✅ D8 條件選股頁（行情＋估值複合篩選）— commit `89b7b07`（pytest 115 綠；沿用既有 latest_trade_date() 未增同義函數；實機驗證殖利率≥6+PE≤10 → 33 檔、漲幅≥9% → 10 檔、無條件/非數值 → 400、頁面 200；前端渲染待有 Node 環境補驗）
+- ✅ D9 查詢個股月營收對比表（monthly_revenue 全月份）— commit `425dda9`（pytest 124 綠；full 容器重建後瀏覽器實測 2317 全流程渲染正確、億元換算正確、2330 空清單容錯；已知資料源現況：monthly_revenue TWSE 僅 942 檔、2330 缺漏，另開 Bot 端調查）
 
 ### 待補驗清單（2026-07-19 大部分已於 Docker 機補驗完成）
 
