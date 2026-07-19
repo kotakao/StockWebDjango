@@ -395,6 +395,55 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
 回報：改動清單（檔案與重點）、新增測試說明、測試總數、commit hash。
 ```
 
+## ☐ D9：查詢個股月營收對比表（monthly_revenue 全月份）
+
+```text
+你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支）。
+請先閱讀 AGENT.md 與 docs/spec.md（§4 鐵律、§5/§6/§7）；一律繁體中文。
+嚴禁提交任何 .env 檔。工作區若有使用者未提交的變更勿動勿納入。
+前置：D3/D4 已完成；本機無 Node.js：前端只寫程式碼不 build，
+行為以 API 測試保障（與 spec §9 一致）。
+
+背景：market.db 的 monthly_revenue 表——主鍵 market+code+year_month
+（"YYYY-MM"），欄位 name、revenue（千元）、mom_pct（月增率%）、
+yoy_pct（年增率%）、cum_revenue（累計營收千元）、cum_yoy_pct
+（累計年增率%），各比率由來源 API 直接提供、缺漏容錯 NULL。
+月營收為每月快照自部署起累積（目前僅 2026-06 一個月份，之後逐月遞增；
+部分公司缺漏屬資料源現況，前端以空清單容錯）。apps/market 已有
+MonthlyRevenue managed=False 模型與 latest_monthly_revenue selector
+（D3 使用，只取最新月）。本專案依鐵律對 market 連線一律唯讀。
+
+需求（使用者原始需求：查詢個股的資料計算範圍改依資料庫全部資料，
+完善 YoY 呈現，另開表格顯示每一月份營收對比）：
+1. selectors 補 monthly_revenue_rows(code)：該代號「全部」月份的列
+   （year_month、revenue、mom_pct、yoy_pct、cum_revenue、cum_yoy_pct），
+   依 year_month 新到舊，不設筆數上限（每檔每年至多 12 筆，量小）。
+2. API：GET /api/stocks/{code}/revenue——code 驗證 4-6 位英數（不符回
+   400 {"error": ...}）；回 {"code": ..., "months": [...]}，查無資料回
+   200 空清單（不回 400——代號存在與否由 summary API 把關，本端點
+   單純反映 monthly_revenue 現況）。整包 Redis 快取
+   （key swd:v1:stock:revenue:{code}，前綴比照既有由 CACHES 加上，
+   TTL 10 分鐘）。
+3. 前端（/stocks/query 頁 StockQuery.vue）：summary 查詢成功（200）後
+   併行呼叫本端點，於「近期資料表」下方新增區塊「月營收對比」
+   Bootstrap table：月份、營收（億元，千元÷100000，兩位小數）、
+   月增%、年增%、累計營收（億元）、累計年增%；NULL 顯示「—」、
+   年增率紅正綠負（台股慣例）；空清單顯示「尚無月營收資料
+   （自部署起逐月累積）」。revenue API 失敗不影響 summary 區塊呈現
+   （獨立錯誤訊息）。
+4. 既有 summary API 與快照邏輯不動（最新月指標卡維持現狀）；
+   不動唯讀機制、不新增資料表。
+5. 測試：selectors 全月份排序測試；API code 驗證 400、空清單 200、
+   多月份輸出、快取行為測試（fixture 造多月份假資料含 NULL 欄）；
+   頁面路由測試不變。
+
+驗收：pytest 全綠（既有 115 只增不減）；ruff 無錯誤；README 查詢個股
+節補月營收對比說明。完成後以 feat 前綴 commit（訊息含「D9」，結尾加
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
+不要動 todolist.md（由管理流程更新）。
+回報：改動清單（檔案與重點）、新增測試說明、測試總數、commit hash。
+```
+
 ---
 
 ## 已完成（記錄用）
