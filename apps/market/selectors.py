@@ -11,6 +11,7 @@ from .models import (
     DailyQuote,
     DividendEvent,
     Holding,
+    Institutional,
     InvestorConference,
     MarketDaily,
     MonthlyRevenue,
@@ -241,6 +242,53 @@ def quotes_with_valuation(quote_date: str) -> list[dict]:
         q["pb"] = v["pb"] if v else None
         q["dividend_yield"] = v["dividend_yield"] if v else None
     return quotes
+
+
+# ---- 個股 K 線（D10）所需唯讀查詢：日 K、三大法人、依代號查除權息事件 ----
+
+# K 線所需行情欄位（對照 daily_quotes；還原價由 service 端計算，不動 DB）。
+_QUOTE_KLINE_FIELDS = ("date", "open", "high", "low", "close", "volume")
+
+
+def daily_quotes_series(code: str, days: int) -> list[dict]:
+    """取某代號最新 days 個交易日行情（date 新到舊），供 K 線序列組裝與前復權。
+
+    回傳每列含 OHLCV 欄位（缺值保留 None）；由 service 端反轉為舊到新並套用還原價。
+    """
+    return list(
+        DailyQuote.objects.using("market")
+        .filter(code=code)
+        .order_by("-date")
+        .values(*_QUOTE_KLINE_FIELDS)[:days]
+    )
+
+
+def institutional_series(code: str, days: int) -> list[dict]:
+    """取某代號最新 days 個交易日三大法人買賣超（date 新到舊）；查無回空清單。
+
+    回傳每列含 date 與 foreign_net／trust_net／dealer_net（股數，缺值 None），
+    供 service 端以 date 對齊行情序列並加總換算張數。
+    """
+    return list(
+        Institutional.objects.using("market")
+        .filter(code=code)
+        .order_by("-date")
+        .values("date", "foreign_net", "trust_net", "dealer_net")[:days]
+    )
+
+
+def dividend_events_for_code(code: str, start: str) -> list[dict]:
+    """取某代號 ex_date >= start 的除權息事件（ex_date 新到舊），供前復權還原歷史價。
+
+    對齊 StockDCBot MarketStore.get_dividend_events：以代號定位、start 為序列最舊日，
+    區間外事件不入列。回傳含 ex_date／cash_dividend／stock_ratio。
+    """
+    return list(
+        DividendEvent.objects.using("market")
+        .filter(code=code, ex_date__gte=start)
+        .order_by("-ex_date")
+        .values("ex_date", "cash_dividend", "stock_ratio")
+    )
 
 
 def latest_quarterly_financial(code: str) -> dict | None:

@@ -52,6 +52,17 @@ CREATE TABLE IF NOT EXISTS valuation (
     PRIMARY KEY (market, date, code)
 );
 
+CREATE TABLE IF NOT EXISTS institutional (
+    market      TEXT NOT NULL DEFAULT 'TWSE',
+    date        TEXT NOT NULL,
+    code        TEXT NOT NULL,
+    name        TEXT,
+    foreign_net REAL,
+    trust_net   REAL,
+    dealer_net  REAL,
+    PRIMARY KEY (market, date, code)
+);
+
 CREATE TABLE IF NOT EXISTS monthly_revenue (
     market      TEXT NOT NULL DEFAULT 'TWSE',
     code        TEXT NOT NULL,

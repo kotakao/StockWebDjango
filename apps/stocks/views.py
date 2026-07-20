@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 
 from apps.market import selectors
 
+from . import services
 from .models import StockSnapshot
 from .serializers import StockSnapshotSerializer
 from .tasks import refresh_snapshot
@@ -22,7 +23,10 @@ CODE_RE = re.compile(r"^[A-Za-z0-9]{4,6}$")  # 代號：4-6 位英數
 CACHE_TTL = 600  # 10 分鐘（spec §7）
 CACHE_KEY = "stock:{code}"  # 前綴 swd:v1 由 CACHES 設定加上
 REVENUE_CACHE_KEY = "stock:revenue:{code}"  # 月營收對比整包快取（前綴同上）
+QUOTES_CACHE_KEY = "quotes:{code}:{days}:{adjusted}"  # 日 K 序列快取（前綴同上）
 RECENT_LIMIT = 20  # 近 N 個交易日快照
+DEFAULT_DAYS = 252  # 日 K 預設近 252 交易日
+MAX_DAYS = 252  # days 上限
 
 
 def query(request):
@@ -35,6 +39,26 @@ def _validate_code(code: str) -> str:
     if not CODE_RE.match(code or ""):
         raise ValidationError("code 需為 4-6 位英數")
     return code
+
+
+def _validate_days(raw: str | None) -> int:
+    """驗證 days：1~252 整數，缺省回 252；非整數或超界拋 ValidationError（→400）。"""
+    if raw in (None, ""):
+        return DEFAULT_DAYS
+    try:
+        days = int(raw)
+    except (TypeError, ValueError):
+        raise ValidationError("days 需為 1~252 的整數") from None
+    if not 1 <= days <= MAX_DAYS:
+        raise ValidationError(f"days 需為 1~{MAX_DAYS}")
+    return days
+
+
+def _parse_adjusted(raw: str | None) -> bool:
+    """解析 adjusted 布林參數，預設 True；僅 false/0/no（不分大小寫）視為未還原。"""
+    if raw is None:
+        return True
+    return raw.strip().lower() not in ("false", "0", "no")
 
 
 class StockSummaryView(APIView):
@@ -98,5 +122,40 @@ class StockRevenueView(APIView):
             return Response(cached)
 
         payload = {"code": code, "months": selectors.monthly_revenue_rows(code)}
+        cache.set(cache_key, payload, timeout=CACHE_TTL)
+        return Response(payload)
+
+
+class StockQuotesView(APIView):
+    """個股日 K 序列：GET /api/stocks/{code}/quotes?days=252&adjusted=true。
+
+    - code 非 4-6 位英數 → 400；days 非 1~252 整數 → 400。
+    - 查無代號（daily_quotes 無列）→ 400。
+    - 回傳日期舊到新的 OHLCV ＋ 三大法人淨額（張）序列（Redis 快取，TTL 10 分）。
+    - adjusted 預設 true（前復權）；快取 key 含 days 與 adjusted 以區分。
+    """
+
+    def get(self, request, code):
+        """回 {"code","days","adjusted","quotes":[...]}；quotes 日期舊到新。"""
+        code = _validate_code(code)
+        days = _validate_days(request.query_params.get("days"))
+        adjusted = _parse_adjusted(request.query_params.get("adjusted"))
+
+        cache_key = QUOTES_CACHE_KEY.format(
+            code=code, days=days, adjusted=str(adjusted).lower()
+        )
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        if not selectors.code_exists(code):
+            raise ValidationError("查無此代號")
+
+        payload = {
+            "code": code,
+            "days": days,
+            "adjusted": adjusted,
+            "quotes": services.build_quotes(code, days, adjusted),
+        }
         cache.set(cache_key, payload, timeout=CACHE_TTL)
         return Response(payload)

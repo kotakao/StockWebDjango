@@ -6,7 +6,11 @@ import { createChart } from "lightweight-charts";
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 
 const props = defineProps({
-  // series：[{ type:'line'|'histogram', color, data:[{time,value|null}], priceScaleId?, title? }]
+  // series：[{ type:'line'|'histogram'|'candlestick', color, data, priceScaleId?, title?,
+  //           scaleMargins?, upColor?, downColor? }]
+  //   line/histogram data：[{time,value|null,color?}]
+  //   candlestick data：[{time,open,high,low,close}]（缺 close 視為 whitespace 缺口）
+  //   scaleMargins：{top,bottom} 套用於該 series 的 priceScaleId，供 K 線＋成交量/法人副圖分層
   series: { type: Array, required: true },
   height: { type: Number, default: 220 },
 });
@@ -15,9 +19,14 @@ const container = ref(null);
 let chart = null;
 let resizeObserver = null;
 
-// null 值轉為 whitespace 資料點（{time} 無 value）→ 線段留缺口，不臆造數值。
+// null 值轉為 whitespace 資料點（{time} 無值）→ 缺口不臆造數值；candlestick 以 close 判缺。
 function toPoints(data) {
-  return data.map((p) => (p.value === null || p.value === undefined ? { time: p.time } : p));
+  return data.map((p) => {
+    if (p.open !== undefined) {
+      return p.close === null || p.close === undefined ? { time: p.time } : p;
+    }
+    return p.value === null || p.value === undefined ? { time: p.time } : p;
+  });
 }
 
 function buildChart() {
@@ -43,17 +52,39 @@ function buildChart() {
   }
 
   for (const s of props.series) {
-    const opts = {
-      color: s.color,
-      lineWidth: 2,
-      priceLineVisible: false,
-      lastValueVisible: true,
-    };
-    if (s.priceScaleId) opts.priceScaleId = s.priceScaleId;
-    if (s.title) opts.title = s.title;
-    const chartSeries =
-      s.type === "histogram" ? chart.addHistogramSeries(opts) : chart.addLineSeries(opts);
+    let chartSeries;
+    if (s.type === "candlestick") {
+      // 台股慣例：紅漲綠跌。
+      const up = s.upColor || "#d32f2f";
+      const down = s.downColor || "#388e3c";
+      chartSeries = chart.addCandlestickSeries({
+        upColor: up,
+        downColor: down,
+        borderUpColor: up,
+        borderDownColor: down,
+        wickUpColor: up,
+        wickDownColor: down,
+        priceScaleId: s.priceScaleId || "right",
+        priceLineVisible: false,
+        lastValueVisible: true,
+      });
+    } else {
+      const opts = {
+        color: s.color,
+        lineWidth: 2,
+        priceLineVisible: false,
+        lastValueVisible: true,
+      };
+      if (s.priceScaleId) opts.priceScaleId = s.priceScaleId;
+      if (s.title) opts.title = s.title;
+      chartSeries =
+        s.type === "histogram" ? chart.addHistogramSeries(opts) : chart.addLineSeries(opts);
+    }
     chartSeries.setData(toPoints(s.data || []));
+    // 副圖分層：以 scaleMargins 將該 series 的價格軸壓到指定範圍（如成交量置底）。
+    if (s.scaleMargins && s.priceScaleId) {
+      chart.priceScale(s.priceScaleId).applyOptions({ scaleMargins: s.scaleMargins });
+    }
   }
 
   // 固定資料範圍（不可平移/縮放）。

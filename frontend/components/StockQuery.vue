@@ -4,10 +4,12 @@
 // 200：指標卡列（收盤/漲跌%、PE、PB、殖利率、月營收 YoY、累計營收 YoY、毛利率、
 // 營益率、EPS，各標資料基準，NULL 顯示「—」）＋近 20 交易日快照表。
 import { computed, onUnmounted, ref } from "vue";
+import LwChart from "./LwChart.vue";
 
 const CODE_RE = /^[A-Za-z0-9]{4,6}$/; // 前端先驗：4-6 位英數
 const MAX_POLL = 10; // 202 輪詢上限
 const POLL_INTERVAL = 1000; // 1 秒
+const KLINE_DAYS = 252; // K 線近 252 交易日
 
 const codeInput = ref("");
 const queriedCode = ref("");
@@ -23,6 +25,60 @@ const recent = computed(() => result.value?.recent ?? []);
 // 月營收對比（獨立狀態，失敗不影響 summary 區塊）
 const revenueMonths = ref([]);
 const revenueError = ref("");
+
+// K 線（獨立狀態，失敗不影響 summary 區塊）；adjusted 切換即重新取 API。
+const klineState = ref("idle"); // idle | loading | ready | empty | error
+const klineError = ref("");
+const klineAdjusted = ref(true);
+const quotes = ref([]);
+
+// LwChart series：candlestick 主圖 ＋ 成交量、法人淨額兩個 histogram 副圖（分層 scaleMargins）。
+const klineSeries = computed(() => {
+  const rows = quotes.value;
+  if (!rows.length) return [];
+  return [
+    {
+      type: "candlestick",
+      priceScaleId: "right",
+      scaleMargins: { top: 0.05, bottom: 0.45 },
+      data: rows.map((r) => ({
+        time: r.date,
+        open: r.open,
+        high: r.high,
+        low: r.low,
+        close: r.close,
+      })),
+    },
+    {
+      type: "histogram",
+      color: "#90a4ae",
+      title: "成交量(張)",
+      priceScaleId: "volume",
+      scaleMargins: { top: 0.6, bottom: 0.25 },
+      // 成交股數 ÷1000 → 張；缺值保留 null 由 LwChart 轉缺口。
+      data: rows.map((r) => ({
+        time: r.date,
+        value: r.volume === null || r.volume === undefined ? null : Math.round(r.volume / 1000),
+      })),
+    },
+    {
+      type: "histogram",
+      title: "法人淨額(張)",
+      priceScaleId: "inst",
+      scaleMargins: { top: 0.8, bottom: 0 },
+      // 紅買綠賣（台股慣例）；缺日保留 null。
+      data: rows.map((r) => ({
+        time: r.date,
+        value: r.inst_net,
+        color: r.inst_net === null || r.inst_net === undefined
+          ? undefined
+          : r.inst_net >= 0
+            ? "#ef9a9a"
+            : "#a5d6a7",
+      })),
+    },
+  ];
+});
 
 // 數值格式化：NULL/undefined 一律顯示「—」。
 function fmtNum(v, digits = 2) {
@@ -96,6 +152,7 @@ async function runFetch(code) {
     result.value = await resp.json();
     state.value = "ready";
     fetchRevenue(code); // summary 就緒後併行取月營收（失敗不影響上方）
+    fetchQuotes(code); // 併行取日 K（失敗不影響上方）
   } catch (err) {
     errorMsg.value = err.message || "載入失敗";
     state.value = "error";
@@ -120,6 +177,35 @@ async function fetchRevenue(code) {
   }
 }
 
+// 日 K：獨立呼叫，錯誤僅記在 klineError，不動 summary 區塊。adjusted 依切換鈕。
+async function fetchQuotes(code) {
+  klineState.value = "loading";
+  klineError.value = "";
+  quotes.value = [];
+  try {
+    const url = `/api/stocks/${encodeURIComponent(code)}/quotes?days=${KLINE_DAYS}&adjusted=${klineAdjusted.value}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      klineError.value = body.error || `HTTP ${resp.status}`;
+      klineState.value = "error";
+      return;
+    }
+    const data = await resp.json();
+    quotes.value = data.quotes ?? [];
+    klineState.value = quotes.value.length ? "ready" : "empty";
+  } catch (err) {
+    klineError.value = err.message || "K 線載入失敗";
+    klineState.value = "error";
+  }
+}
+
+// 還原/未還原切換：翻轉 adjusted 後重新取 API（重繪整張圖）。
+function toggleAdjust() {
+  klineAdjusted.value = !klineAdjusted.value;
+  if (queriedCode.value) fetchQuotes(queriedCode.value);
+}
+
 function submit() {
   const code = codeInput.value.trim();
   if (!CODE_RE.test(code)) {
@@ -132,6 +218,8 @@ function submit() {
   result.value = null;
   revenueMonths.value = [];
   revenueError.value = "";
+  quotes.value = [];
+  klineState.value = "idle";
   queriedCode.value = code;
   state.value = "loading";
   runFetch(code);
@@ -201,6 +289,44 @@ onUnmounted(clearTimer);
         <h2 class="h5 mb-0">{{ latest.code }}</h2>
         <span v-if="latest.name" class="text-muted ms-2">{{ latest.name }}</span>
         <span v-if="latest.market" class="badge text-bg-secondary ms-2">{{ latest.market }}</span>
+      </div>
+
+      <!-- K 線卡（daily_quotes 近 252 日；成交量、法人淨額副圖；還原/未還原切換） -->
+      <div class="card mb-4">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <h2 class="h6 card-title mb-0">
+              日 K 線（近 {{ KLINE_DAYS }} 交易日）
+              <small class="text-muted ms-1">{{ klineAdjusted ? "還原" : "未還原" }}</small>
+            </h2>
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-secondary"
+              :disabled="klineState === 'loading'"
+              @click="toggleAdjust"
+            >
+              切換為{{ klineAdjusted ? "未還原" : "還原" }}
+            </button>
+          </div>
+
+          <!-- 載入中 -->
+          <div v-if="klineState === 'loading'" class="text-center text-muted py-5">
+            <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+            <span class="ms-2">K 線載入中…</span>
+          </div>
+          <!-- 錯誤 -->
+          <div v-else-if="klineState === 'error'" class="alert alert-warning py-2 mb-0" role="alert">
+            K 線載入失敗：{{ klineError }}
+          </div>
+          <!-- 無資料 -->
+          <p v-else-if="klineState === 'empty'" class="text-muted mb-0">尚無日 K 資料。</p>
+          <!-- 就緒 -->
+          <LwChart v-else-if="klineState === 'ready'" :series="klineSeries" :height="360" />
+
+          <p class="text-muted small mb-0 mt-2">
+            主圖為日 K，副圖由上而下為成交量（張）、三大法人淨額（張，紅買綠賣）。
+          </p>
+        </div>
       </div>
 
       <!-- 指標卡列 -->

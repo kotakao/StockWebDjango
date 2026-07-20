@@ -65,6 +65,27 @@ class MarketDaily(models.Model):
         db_table = "market_daily"
 
 
+class Institutional(models.Model):
+    """institutional：三大法人每日買賣超（股數）。PK(market, date, code)。
+
+    foreign_net／trust_net／dealer_net 皆為當日買賣超股數（正買超負賣超），容錯 NULL；
+    D10 個股 K 線副圖以三者加總（÷1000 換算張）呈現。本專案唯讀呈現。
+    """
+
+    pk = models.CompositePrimaryKey("market", "date", "code")
+    market = models.CharField(max_length=8)
+    date = models.CharField(max_length=10)
+    code = models.CharField(max_length=8)
+    name = models.TextField(null=True)
+    foreign_net = models.FloatField(null=True)
+    trust_net = models.FloatField(null=True)
+    dealer_net = models.FloatField(null=True)
+
+    class Meta:
+        managed = False
+        db_table = "institutional"
+
+
 class MonthlyRevenue(models.Model):
     """monthly_revenue：月營收。PK(market, code, year_month)。"""
 

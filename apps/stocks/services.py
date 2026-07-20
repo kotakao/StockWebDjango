@@ -5,6 +5,7 @@
 """
 
 from apps.market import selectors
+from apps.market import services as market_services
 
 
 def _pct_change(today: float | None, yesterday: float | None) -> float | None:
@@ -71,3 +72,60 @@ def build_snapshot(code: str) -> dict | None:
         "eps": eps,
         "quarter": quarter,
     }
+
+
+def _inst_net_lots(row: dict | None) -> int | None:
+    """三大法人合計淨額（張）＝(外資+投信+自營)股數÷1000 四捨五入。
+
+    缺日容錯：查無該日 institutional 列（row 為 None）回 None；列存在但個別法人
+    欄位缺值以 0 計（部分缺漏不整列作廢）。
+    """
+    if row is None:
+        return None
+    total = (
+        (row.get("foreign_net") or 0.0)
+        + (row.get("trust_net") or 0.0)
+        + (row.get("dealer_net") or 0.0)
+    )
+    return round(total / 1000)
+
+
+def build_quotes(code: str, days: int, adjusted: bool) -> list[dict]:
+    """組裝個股日 K 序列（日期舊到新）：OHLCV ＋ 三大法人淨額（張）。
+
+    - 行情取 daily_quotes 最新 days 日（新到舊），前復權時套用還原價
+      （事件僅取 ex_date 落在序列日期範圍內且非未來日者，對齊 Bot adjusted_history）。
+    - 三大法人以 date 對齊（缺日 inst_net 回 None）。
+    查無代號（daily_quotes 無列）回空清單。
+    """
+    history = selectors.daily_quotes_series(code, days)
+    if not history:
+        return []
+
+    if adjusted:
+        newest = history[0]["date"]
+        oldest = history[-1]["date"]
+        events = [
+            e
+            for e in selectors.dividend_events_for_code(code, oldest)
+            if e["ex_date"] <= newest
+        ]
+        if events:
+            history = market_services.adjust_history(history, events)
+
+    inst_by_date = {r["date"]: r for r in selectors.institutional_series(code, days)}
+
+    series = []
+    for row in reversed(history):  # 反轉為舊到新
+        series.append(
+            {
+                "date": row["date"],
+                "open": row.get("open"),
+                "high": row.get("high"),
+                "low": row.get("low"),
+                "close": row.get("close"),
+                "volume": row.get("volume"),
+                "inst_net": _inst_net_lots(inst_by_date.get(row["date"])),
+            }
+        )
+    return series
