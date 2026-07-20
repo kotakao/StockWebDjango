@@ -459,9 +459,11 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
 前置：D4 已完成。market.db 需有 daily_quotes 與 dividend_events 表。
 
 需求：
-1. apps/market 補 managed=False 模型與 selectors：dividend_events、
-   institutional（欄位以 StockDCBot storage.py 的 CREATE TABLE 為準，
-   逐欄核對後於回報列出對映表；比照既有五模型慣例）。
+1. apps/market 補 managed=False 模型與 selectors：institutional
+   （欄位以 StockDCBot storage.py 的 CREATE TABLE 為準，逐欄核對後於
+   回報列出對映表；比照 models.py 既有九模型慣例）。注意 dividend_events
+   模型（DividendEvent）與 selectors.dividend_events_between 已於 D7
+   存在——勿重複建模型，D10 需要按代號查事件時新增 selector 即可。
 2. 前復權純邏輯 services：移植 StockDCBot analysis.adjust_history 的
    前復權演算法（由最新日往回逐除權息事件調整：除息減現金股利、除權
    除以 (1+配股率)、除權息先減再除；OHLC 四價同步調整、量不調整；
