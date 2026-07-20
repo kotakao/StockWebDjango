@@ -2,7 +2,8 @@
 
 > 使用方式：每個區塊的 Prompt 為自包含內容，直接複製整段送給新的 Session 即可開工。
 > 完成一區後在標題打勾並記錄 commit hash。規格依據：`docs/spec.md`（v0.1）。
-> 執行順序：D0 → D1 → D2 → D3 → D4（D2/D3 理論可並行，保守串行）。
+> 執行順序：第一版 D0→D4、第二版 D5→D9（皆已完成）；第三版 D10 → D11 → D12
+>（D11/D12 互不相依可換序，與 D10 共用查詢頁/儀表板檔案，一律串行）。
 > 需要 StockDCBot 端配合的新資料源，一律回 StockDCBot repo 的 todolist.md 開 DC-x 派工。
 
 ---
@@ -442,6 +443,118 @@ MonthlyRevenue managed=False 模型與 latest_monthly_revenue selector
 Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push、
 不要動 todolist.md（由管理流程更新）。
 回報：改動清單（檔案與重點）、新增測試說明、測試總數、commit hash。
+```
+
+---
+
+## ☐ D10：個股 K 線圖（還原/未還原、量與法人副圖）
+
+```text
+你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支）。
+請先完整閱讀 AGENT.md（鐵律）與 docs/spec.md §1 第三版範圍/§5/§6/§7；
+一律繁體中文。工作區若有未提交變更勿動勿納入。嚴禁提交任何 .env 檔。
+單元測試以 config.settings.test 執行（pytest；免真實 redis/postgres/node）；
+不進行 Docker 相關測試（收尾驗收於 Docker 機統一執行）。
+
+前置：D4 已完成。market.db 需有 daily_quotes 與 dividend_events 表。
+
+需求：
+1. apps/market 補 managed=False 模型與 selectors：dividend_events、
+   institutional（欄位以 StockDCBot storage.py 的 CREATE TABLE 為準，
+   逐欄核對後於回報列出對映表；比照既有五模型慣例）。
+2. 前復權純邏輯 services：移植 StockDCBot analysis.adjust_history 的
+   前復權演算法（由最新日往回逐除權息事件調整：除息減現金股利、除權
+   除以 (1+配股率)、除權息先減再除；OHLC 四價同步調整、量不調整；
+   只套用序列日期範圍內且非未來日的事件）。**公式與測試數字以 Bot 端
+   tests/test_analysis.py 的案例為權威——至少移植除息/除權/除權息/
+   無事件/多事件疊加五個案例且數字一致**；能讀 StockDCBot repo 時直接
+   對照原始碼，不能讀時停止並回報。
+3. API：GET /api/stocks/{code}/quotes?days=252&adjusted=true——
+   code 4-6 位英數、days 1~252 預設 252、adjusted 預設 true；回傳
+   日期舊到新的 OHLCV＋三大法人淨額（張，÷1000）序列；查無代號 400；
+   Redis 快取 key swd:v1:quotes:{code}:{days}:{adjusted}，TTL 10 分鐘。
+4. 前端：查詢個股頁（StockQuery.vue 流程內）在 200 結果區上方新增
+   K 線卡：LwChart.vue 需擴充支援 candlestick＋histogram 副圖（成交量、
+   法人淨額）；還原/未還原切換鈕（重新取 API）；互動鎖定與 fitContent
+   沿用全站慣例；載入/錯誤/無資料三態。
+5. 測試：前復權五案例（數字對齊 Bot 端）＋序列組裝（含法人缺日容錯）
+   單元測試；API 參數驗證/快取/400 分支測試（暫時 SQLite fixture）。
+
+驗收：pytest 全綠（既有 124 不得減少）；ruff 無錯誤。完成後以 feat 前綴
+commit（訊息含「D10」，結尾加
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push。
+回報：改動清單、欄位對映表、與 Bot 端測試數字對齊證明、測試數、hash。
+```
+
+## ☐ D11：產業同業比較
+
+```text
+你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支）。
+請先完整閱讀 AGENT.md（鐵律）與 docs/spec.md §1 第三版範圍/§5/§7；
+一律繁體中文。工作區若有未提交變更勿動勿納入。嚴禁提交任何 .env 檔。
+單元測試以 config.settings.test 執行；不進行 Docker 相關測試。
+
+前置：D4 已完成；StockDCBot 端 DC-M 已完成（company_profile 表：
+market+code、產業別、名稱、英文簡稱——欄位以 storage.py 為準逐欄核對）。
+注意：部分機器的 market.db 尚未累積此表，selectors 與 API 必須容忍
+「表不存在」——回空集合與 reason 欄位，不得 500。
+
+需求：
+1. apps/market 補 company_profile 的 managed=False 模型與 selectors
+   （同產業個股清單查詢；表不存在容錯）。
+2. services：組裝同業對比——給定 code 找其產業別，取同產業全部個股的
+   最新 valuation（PE/PB/殖利率）、monthly_revenue 最新月 YoY、
+   quarterly_financials 最新季毛利率（讀取端計算），輸出對比列
+   （缺值 NULL 容錯）；本股標記 is_self。
+3. API：GET /api/stocks/{code}/peers——code 驗證；查無代號 400；
+   company_profile 缺表/該股無產業資料時 200 回 {"peers": [],
+   "reason": "..."}；Redis 快取 key swd:v1:peers:{code}，TTL 10 分鐘。
+4. 前端：查詢個股頁 200 結果區新增「同業比較」摺疊卡：Bootstrap table
+   對比同業（代號、名稱、PE、PB、殖利率、營收 YoY、毛利率），本股列
+   高亮；reason 存在時顯示原因文字。
+5. 測試：services 組裝（含缺值、單一成員、表不存在）單元測試；
+   API 200/400/缺表 reason 分支測試。
+
+驗收：pytest 全綠（不得低於既有基準）；ruff 無錯誤。完成後以 feat 前綴
+commit（訊息含「D11」，結尾加
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push。
+回報：改動清單、company_profile 欄位對映、測試數、hash。
+```
+
+## ☐ D12：儀表板近期警示卡
+
+```text
+你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支）。
+請先完整閱讀 AGENT.md（鐵律）與 docs/spec.md §1 第三版範圍/§5/§7/§10；
+一律繁體中文。工作區若有未提交變更勿動勿納入。嚴禁提交任何 .env 檔。
+單元測試以 config.settings.test 執行；不進行 Docker 相關測試。
+
+前置：D2 已完成。資料來源為 StockDCBot 每日 JSON 報告
+reports/YYYY-MM/taiwan_stock_report_YYYYMMDD.json 的
+sections.market_alerts（結構以實際檔案為準——能讀 StockDCBot repo 的
+reports/ 時先取樣核對並於回報附樣本結構；讀不到時以「型別寬鬆解析＋
+缺鍵容錯」實作並註明未經實檔核對）。
+
+需求：
+1. 組態：新增 REPORTS_DIR 環境變數（.env.example 補註解；未設定或目錄
+   不存在時功能優雅降級）。compose.yaml 的 web/worker 增加報告目錄
+   :ro 掛載（純 JSON 讀取，無 SQLite WAL 問題）——依既有
+   MARKET_DB_DIR 模式以環境變數注入。
+2. services：讀最近 N 個交易日的報告 JSON（依檔名日期新到舊、最多回溯
+   14 個日曆日），彙整 market_alerts 為 [{date, type, message}]；
+   缺檔/壞 JSON/舊格式逐檔容錯跳過並記 log，不得使整包失敗。
+3. API：GET /api/dashboard/alerts?days=5（days 1~10）；REPORTS_DIR 未
+   設定/無任何可讀報告時 200 回 {"alerts": [], "reason": "..."}；
+   Redis 快取 key swd:v1:alerts:{days}，TTL 10 分鐘。
+4. 前端：Dashboard 新增「近期市場警示」卡（第五卡，Bootstrap list）：
+   依日期分組列警示，無資料時顯示 reason；載入/錯誤三態。
+5. 測試：services 解析（正常/缺檔/壞 JSON/空 alerts）單元測試（fixture
+   造假報告檔於 tmp_path）；API 參數驗證與 reason 分支測試。
+
+驗收：pytest 全綠（不得低於既有基準）；ruff 無錯誤。完成後以 feat 前綴
+commit（訊息含「D12」，結尾加
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push。
+回報：改動清單、報告 JSON 取樣核對情形、測試數、hash。
 ```
 
 ---
