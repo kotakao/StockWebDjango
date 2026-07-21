@@ -579,6 +579,93 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push。
 回報：改動清單、警示正規化欄位對映、測試數、hash。
 ```
 
+# 第四版派工（第三方公司質化資料擴充）
+
+## ☐ D13：公司質化資料擴充（My-TW-Coverage 業務簡介＋題材，PostgreSQL 參考表）
+
+```text
+你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支）。
+請先完整閱讀 AGENT.md（鐵律）與 docs/spec.md §1/§3.2/§4/§5/§7；
+一律繁體中文。工作區若有未提交變更勿動勿納入。嚴禁提交任何 .env 檔。
+單元測試以 config.settings.test 執行（.venv\Scripts\python.exe -m pytest），
+並跑 .venv\Scripts\ruff.exe check .；不進行 Docker 相關測試。本機無 node，
+前端只改源碼不 build。
+
+背景與資料來源（管理者已於 2026-07-21 讀原始 repo 實檔核對結構如下，以此為準）：
+- 來源 GitHub：Timeverse/My-TW-Coverage（授權 MIT，須保留出處）。1,735 檔
+  台股，每檔一份 Markdown，檔名 `NNNN_公司名.md`（代號 4-6 碼開頭）。
+- 每份固定區塊（跨產業一致）：`## 業務簡介`（內含 **板塊:** / **產業:** /
+  **市值:** / **企業價值:** 欄位行，之後接一段敘述，敘述含 [[wikilink]] 標記）、
+  `## 供應鏈位置`、`## 主要客戶及供應商`、`## 財務概況`（估值＋年度/季度表）。
+  H1 為 `# NNNN - 公司名` 或 `# NNNN - [[公司名]]`（名稱可能帶方括號）。
+- 題材檔在 `themes/*.md`（README.md 除外，共約 20 個）：H1 為 `# 標題`，
+  次行 `> 說明`，內含 `## 上游/中游/下游` 分段，成員逐行為
+  `- **NNNN 公司名** (英文產業)`——成員代號可乾淨以正則
+  `^-\s+\*\*(\d{4,6})\s+` 取出。
+- 重要限制（務必落實於呈現層文案）：財務/估值為 yfinance＋靜態舊快照、
+  業務簡介與供應鏈為第三方 LLM 生成的 original research，非權威、非即時。
+  本任務「只取質化層」：業務簡介、英文板塊/產業、題材歸屬；
+  **一律不匯入**財務、估值、市值、企業價值（你已有更權威的 market 資料），
+  **不做**供應鏈結構化（管理者實測 wikilinks 僅約一成能落台股代號）。
+
+契約歸屬（鐵律）：本資料為 Django 自有策展資料，落 default 庫（PostgreSQL）、
+managed=True 正常 migration；**完全不得觸及 market 連線與 market.db**
+（不新增 market 模型、不動唯讀雙保險）。apps/market/tests/test_readonly.py
+須維持全綠。
+
+需求：
+1. 模型（apps/stocks/models.py，PostgreSQL default 庫，managed）：
+   - CompanyResearch：code（CharField(8) 主鍵，對應 market.code、跨庫不建 FK）、
+     name（CharField(64)，來源檔名稱，僅供對照）、sector_en（CharField(64)）、
+     industry_en（CharField(64)）、business_summary（TextField，敘述去除
+     [[ ]] 標記後的純文字）、themes（ArrayField(CharField(64)) 題材 slug 陣列，
+     default=list）、source_repo（CharField(128) 預設 "Timeverse/My-TW-Coverage"）、
+     source_commit（CharField(40) 匯入時 repo commit）、imported_at（auto_now）。
+     db_table="company_research"；sector_en 建 index。
+   - ResearchTheme：key（CharField(64) 主鍵，題材 slug，如 "ai-伺服器"）、
+     title（CharField(128) 顯示名，如 "AI 伺服器供應鏈"）、description（TextField）。
+     db_table="research_theme"。成員關係存於 CompanyResearch.themes 陣列
+     （不建 M2M 中間表）。產生對應 migration。
+2. 匯入指令（management command，如 import_company_research）：
+   - 由本機外部路徑讀取 My-TW-Coverage 的 clone（路徑以指令引數 --source
+     或 settings.RESEARCH_SOURCE_DIR 提供；未提供或路徑不存在時明確報錯退出，
+     不得靜默）。禁止在測試/執行時對外連網下載。
+   - 解析 Pilot_Reports/**/NNNN_*.md → upsert CompanyResearch（code/name/
+     sector_en/industry_en/business_summary，business_summary 去 [[ ]]）；
+     解析結構異常的單檔容錯跳過並記 log、計數，不使整批失敗。
+   - 解析 themes/*.md（略過 README.md）→ upsert ResearchTheme（key 由檔名去
+     副檔名正規化、title 取 H1、description 取 H1 次行 > 引言）；每個題材檔內
+     以 `^-\s+\*\*(\d{4,6})\s+` 取成員代號，將該 slug 併入對應 CompanyResearch
+     的 themes 陣列（去重）。題材檔列出但 CompanyResearch 尚無該代號者：
+     建立僅含 code 的最小列或跳過，由你擇一並於回報說明。
+   - 可帶 --source-commit 記錄來源版本；冪等（重跑不重複、themes 陣列不累積重複）。
+3. selectors/services：apps/stocks 新增唯讀查詢 company_research(code)
+   （回 dict 或 None）與 theme_titles(keys)（slug→title 對照，供前端顯示）。
+   純 default 庫查詢。
+4. API：GET /api/stocks/{code}/research——code 驗證（沿用 _validate_code
+   4-6 位英數）；查無資料時 200 回 {"code":code,"research":null}（非 404，
+   因多數股尚未匯入屬正常）；有資料回 {code, research:{name, sector_en,
+   industry_en, business_summary, themes:[{key,title}], source_repo,
+   imported_at}}。Redis 快取 key swd:v1:research:{code}，TTL 10 分鐘。
+5. 前端：查詢個股頁（StockQuery.vue）結果區新增「公司概況（第三方參考）」卡：
+   顯示 business_summary、英文板塊/產業、題材標籤（Bootstrap badge）；
+   卡片須明確標示「資料來源：My-TW-Coverage（MIT）／第三方 LLM 研究，
+   非即時、非投資建議」與匯入日；research 為 null 時整卡不顯示（優雅降級）；
+   載入/錯誤三態。既有卡片版面與禁拖動慣例維持。
+6. 測試：匯入指令解析單元測試（於 tmp_path 造假的 Pilot_Reports/ 與 themes/
+   小樣本 fixture，涵蓋：業務簡介欄位與敘述去 [[ ]]、H1 帶/不帶方括號、
+   題材成員代號抽取與 themes 併入去重、結構異常單檔跳過、缺 --source 報錯、
+   冪等重跑）；selectors/API 測試（有資料 200、查無資料 research=null、
+   code 格式 400、快取）。全程不連網、不碰 market 連線。
+
+驗收：pytest 全綠（既有 179 不得減少）；ruff 無錯誤；
+apps/market/tests/test_readonly.py 維持全綠。完成後以 feat 前綴 commit
+（訊息含「D13」，結尾加
+Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push。
+回報：改動清單、模型/來源欄位對映、匯入指令用法、對 default 庫 migration
+清單、測試數、hash。實際大量匯入（跑真實 clone）與前端渲染留待 Docker 機補驗。
+```
+
 ---
 
 ## 已完成（記錄用）
