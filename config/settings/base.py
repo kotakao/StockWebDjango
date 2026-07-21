@@ -105,6 +105,10 @@ CELERY_TIMEZONE = "Asia/Taipei"
 # ---- 自選股（D5）：對應 market.db watchlist/holdings 的 user_id（Discord 使用者 ID）----
 WATCHLIST_USER_ID = env("WATCHLIST_USER_ID", default="0")
 
+# ---- 近期市場警示（D12）：StockDCBot reports JSON 目錄（純檔案讀取，唯讀）----
+# 未設定（空字串）或目錄不存在時，警示功能優雅降級（API 回空清單＋原因）。
+REPORTS_DIR = env("REPORTS_DIR", default="")
+
 # ---- DRF 全域設定（JSON only、anon 60/min、統一 400 錯誤格式）----
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],

@@ -4,6 +4,7 @@
 - DashboardSummaryView：GET /api/dashboard/summary?days=60，market_daily 序列＋Redis 快取。
 """
 
+from django.conf import settings
 from django.core.cache import cache
 from django.shortcuts import render
 from rest_framework.exceptions import ValidationError
@@ -12,12 +13,16 @@ from rest_framework.views import APIView
 
 from apps.market import selectors
 
-from .services import build_dashboard_summary
+from .services import build_dashboard_summary, collect_recent_alerts
 
 DAYS_DEFAULT = 60
 DAYS_MIN = 1
 DAYS_MAX = 252
 CACHE_TTL = 600  # 10 分鐘（spec §7）
+
+ALERTS_DAYS_DEFAULT = 5
+ALERTS_DAYS_MIN = 1
+ALERTS_DAYS_MAX = 10
 
 
 def index(request):
@@ -54,6 +59,44 @@ class DashboardSummaryView(APIView):
         if payload is None:
             rows = selectors.recent_market_daily(days)
             payload = build_dashboard_summary(rows, days)
+            cache.set(cache_key, payload, timeout=CACHE_TTL)
+
+        return Response(payload)
+
+
+def _parse_alerts_days(raw: str | None) -> int:
+    """驗證 alerts 的 days 參數：1~10 整數，預設 5；不合法拋 ValidationError（→400）。"""
+    if raw is None or raw == "":
+        return ALERTS_DAYS_DEFAULT
+    try:
+        days = int(raw)
+    except (TypeError, ValueError):
+        raise ValidationError("days 必須為整數") from None
+    if not (ALERTS_DAYS_MIN <= days <= ALERTS_DAYS_MAX):
+        raise ValidationError(f"days 需介於 {ALERTS_DAYS_MIN} 與 {ALERTS_DAYS_MAX}")
+    return days
+
+
+class DashboardAlertsView(APIView):
+    """近期市場警示：讀 StockDCBot reports JSON 的 sections.market_alerts（D12）。
+
+    純檔案讀取，不觸及 market 資料庫連線。整包回應以 Redis 快取
+    （key `alerts:{days}`，前綴 swd:v1 由 CACHES 設定加上），TTL 10 分鐘。
+    """
+
+    def get(self, request):
+        """回傳最近 days 個交易日的市場警示；驗證錯誤 400 {"error": ...}。
+
+        REPORTS_DIR 未設定／無可讀報告 → 200 {"alerts": [], "reason": "..."}；
+        有可讀報告但無警示 → {"alerts": [], "reason": null}。
+        """
+        days = _parse_alerts_days(request.query_params.get("days"))
+        cache_key = f"alerts:{days}"
+
+        payload = cache.get(cache_key)
+        if payload is None:
+            alerts, reason = collect_recent_alerts(settings.REPORTS_DIR, days)
+            payload = {"alerts": alerts, "reason": reason}
             cache.set(cache_key, payload, timeout=CACHE_TTL)
 
         return Response(payload)

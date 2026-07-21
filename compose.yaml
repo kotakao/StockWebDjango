@@ -17,6 +17,8 @@ x-web-env: &web-env
   DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
   REDIS_URL: redis://redis:6379/0
   MARKET_DB_PATH: /data/market.db
+  # 近期市場警示（D12）：報告目錄以 :ro 掛入 /reports（純 JSON 讀取，無 WAL 問題）
+  REPORTS_DIR: /reports
 
 services:
   postgres:
@@ -59,6 +61,8 @@ services:
       # WAL 模式讀取需在同目錄建 -wal/-shm 輔助檔，檔案系統層 :ro 與 WAL 先天不相容；
       # 唯讀保證由連線層 PRAGMA query_only＋Database Router 雙保險負責（spec §4 鐵律測試）。
       - ${MARKET_DB_DIR}:/data
+      # 報告目錄唯讀掛載（純 JSON 檔案，:ro 無 WAL 相容問題）
+      - ${REPORTS_HOST_DIR}:/reports:ro
       - static_data:/app/staticfiles
     depends_on:
       postgres:
@@ -79,6 +83,8 @@ services:
     volumes:
       # 同 web：掛目錄且可寫（WAL 需建 -wal/-shm；唯讀保證在連線層，見 web 服務註解）
       - ${MARKET_DB_DIR}:/data
+      # 報告目錄唯讀掛載（純 JSON 檔案，:ro 無 WAL 相容問題）
+      - ${REPORTS_HOST_DIR}:/reports:ro
     depends_on:
       postgres:
         condition: service_healthy
