@@ -523,7 +523,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push。
 回報：改動清單、company_profile 欄位對映、測試數、hash。
 ```
 
-## ☐ D12：儀表板近期警示卡
+## ☑ D12：儀表板近期警示卡 — commit `4fa091b`
 
 ```text
 你的工作目錄是 StockWebDjango 專案根目錄（本 repo，git、main 分支）。
@@ -595,6 +595,7 @@ Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>），不要 push。
 - ✅ D9 查詢個股月營收對比表（monthly_revenue 全月份）— commit `425dda9`（pytest 124 綠；full 容器重建後瀏覽器實測 2317 全流程渲染正確、億元換算正確、2330 空清單容錯；已知資料源現況：monthly_revenue TWSE 僅 942 檔、2330 缺漏，另開 Bot 端調查）
 - ✅ D10 個股 K 線圖（daily_quotes 近 252 日、前復權還原/未還原、量與法人副圖）— commit `e646d93`（pytest 146 綠、ruff 乾淨；前復權五案例數字對齊 Bot 端 test_analysis.py；新增 Institutional 唯讀模型、GET /api/stocks/{code}/quotes；使用者指示免驗收直接完成；前端 K 線渲染待 Docker 機補驗）
 - ✅ D11 產業同業比較（company_profile 同產業對比 PE/PB/殖利率/營收YoY/毛利率）— commit `e48335c`（管理端親跑 pytest 159 綠、ruff 乾淨；新增 CompanyProfile 唯讀模型與 GET /api/stocks/{code}/peers；company_profile 缺表以 introspection 容錯回 reason 不 500；契約唯讀掃描通過；前端同業卡渲染與缺表實測待 Docker 機補驗）
+- ✅ D12 儀表板近期市場警示卡（讀 StockDCBot reports JSON 的 sections.market_alerts）— commit `4fa091b`（管理端親跑 pytest 179 綠、ruff 乾淨；派工前實讀 reports/＋report.py/analysis.py 修正 Prompt：警示為中文鍵 dict 規則/方向/訊息、日期取報告頂層 date、舊格式無鍵須 .get 容錯；新增 REPORTS_DIR 環境變數與 GET /api/dashboard/alerts；純讀檔不碰 market 連線；compose :ro 掛載、前端第五卡渲染、非空警示實檔待 Docker 機/部署機補驗——開發機 reports 歷史短皆空陣列）
 
 ### 待補驗清單（2026-07-19 大部分已於 Docker 機補驗完成）
 
