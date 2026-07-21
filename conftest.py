@@ -128,6 +128,18 @@ CREATE TABLE IF NOT EXISTS investor_conferences (
     report_date    TEXT,
     PRIMARY KEY (market, code, announce_date, announce_time)
 );
+
+CREATE TABLE IF NOT EXISTS company_profile (
+    market          TEXT NOT NULL DEFAULT 'TWSE',
+    code            TEXT NOT NULL,
+    name            TEXT,
+    abbreviation    TEXT,
+    en_abbreviation TEXT,
+    industry_code   TEXT,
+    listing_date    TEXT,
+    report_date     TEXT,
+    PRIMARY KEY (market, code)
+);
 """
 
 

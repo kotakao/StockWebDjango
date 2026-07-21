@@ -129,3 +129,44 @@ def build_quotes(code: str, days: int, adjusted: bool) -> list[dict]:
             }
         )
     return series
+
+
+def build_peers(code: str) -> dict:
+    """組裝同業對比：同產業（company_profile.industry_code）全部個股的最新估值/營收/毛利率。
+
+    來源（各自缺漏容錯 NULL，不阻斷整列）：
+    - company_profile → 該股產業別（industry_code）與同業清單（code/name）
+    - valuation 最新日 → pe/pb/dividend_yield
+    - monthly_revenue 最新月 → revenue_yoy
+    - quarterly_financials 最新季 → gross_margin（gross_profit/revenue 於讀取端計算）
+
+    容錯：company_profile 表不存在或該股無產業資料時回 {"peers": [], "reason": <原因>}；
+    正常回 {"peers": [...], "reason": None}，本股列標 is_self=True。
+    """
+    if not selectors.company_profile_available():
+        return {"peers": [], "reason": "company_profile 表尚未建立（待部署機累積產業資料）"}
+
+    anchor = selectors.company_profile_industry(code)
+    if not anchor or not anchor.get("industry_code"):
+        return {"peers": [], "reason": "查無此股的產業分類資料"}
+
+    peers = []
+    for profile in selectors.industry_peers(anchor["market"], anchor["industry_code"]):
+        pcode = profile["code"]
+        val = selectors.latest_valuation(pcode)
+        rev = selectors.latest_monthly_revenue(pcode)
+        fin = selectors.latest_quarterly_financial(pcode)
+        gross_margin = _ratio(fin.get("gross_profit"), fin.get("revenue")) if fin else None
+        peers.append(
+            {
+                "code": pcode,
+                "name": profile.get("name"),
+                "pe": val.get("pe") if val else None,
+                "pb": val.get("pb") if val else None,
+                "dividend_yield": val.get("dividend_yield") if val else None,
+                "revenue_yoy": rev.get("yoy_pct") if rev else None,
+                "gross_margin": gross_margin,
+                "is_self": pcode == code,
+            }
+        )
+    return {"peers": peers, "reason": None}

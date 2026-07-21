@@ -32,6 +32,13 @@ const klineError = ref("");
 const klineAdjusted = ref(true);
 const quotes = ref([]);
 
+// 同業比較（獨立狀態，失敗不影響 summary 區塊）；摺疊卡預設展開。
+const peersState = ref("idle"); // idle | loading | ready | empty | error
+const peersError = ref("");
+const peers = ref([]);
+const peersReason = ref("");
+const peersOpen = ref(true);
+
 // LwChart series：candlestick 主圖 ＋ 成交量、法人淨額兩個 histogram 副圖（分層 scaleMargins）。
 const klineSeries = computed(() => {
   const rows = quotes.value;
@@ -153,6 +160,7 @@ async function runFetch(code) {
     state.value = "ready";
     fetchRevenue(code); // summary 就緒後併行取月營收（失敗不影響上方）
     fetchQuotes(code); // 併行取日 K（失敗不影響上方）
+    fetchPeers(code); // 併行取同業比較（失敗不影響上方）
   } catch (err) {
     errorMsg.value = err.message || "載入失敗";
     state.value = "error";
@@ -206,6 +214,31 @@ function toggleAdjust() {
   if (queriedCode.value) fetchQuotes(queriedCode.value);
 }
 
+// 同業比較：獨立呼叫，錯誤僅記在 peersError，不動 summary 區塊。
+// 200 可能回 {"peers": [], "reason": ...}（缺表/無產業資料），以 reason 顯示原因。
+async function fetchPeers(code) {
+  peersState.value = "loading";
+  peersError.value = "";
+  peers.value = [];
+  peersReason.value = "";
+  try {
+    const resp = await fetch(`/api/stocks/${encodeURIComponent(code)}/peers`);
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      peersError.value = body.error || `HTTP ${resp.status}`;
+      peersState.value = "error";
+      return;
+    }
+    const data = await resp.json();
+    peers.value = data.peers ?? [];
+    peersReason.value = data.reason || "";
+    peersState.value = peers.value.length ? "ready" : "empty";
+  } catch (err) {
+    peersError.value = err.message || "同業比較載入失敗";
+    peersState.value = "error";
+  }
+}
+
 function submit() {
   const code = codeInput.value.trim();
   if (!CODE_RE.test(code)) {
@@ -220,6 +253,9 @@ function submit() {
   revenueError.value = "";
   quotes.value = [];
   klineState.value = "idle";
+  peers.value = [];
+  peersReason.value = "";
+  peersState.value = "idle";
   queriedCode.value = code;
   state.value = "loading";
   runFetch(code);
@@ -405,6 +441,72 @@ onUnmounted(clearTimer);
             </tr>
           </tbody>
         </table>
+      </div>
+
+      <!-- 同業比較（company_profile 同產業個股對比；本股列高亮，摺疊卡） -->
+      <div class="card mt-4">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <h2 class="h6 mb-0">同業比較</h2>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            :aria-expanded="peersOpen"
+            @click="peersOpen = !peersOpen"
+          >
+            {{ peersOpen ? "收合" : "展開" }}
+          </button>
+        </div>
+        <div v-show="peersOpen" class="card-body">
+          <!-- 載入中 -->
+          <div v-if="peersState === 'loading'" class="text-center text-muted py-3">
+            <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+            <span class="ms-2">同業比較載入中…</span>
+          </div>
+          <!-- 錯誤 -->
+          <div v-else-if="peersState === 'error'" class="alert alert-warning py-2 mb-0" role="alert">
+            同業比較載入失敗：{{ peersError }}
+          </div>
+          <!-- 無資料（含缺表/無產業資料，以 reason 顯示原因） -->
+          <p v-else-if="peersState === 'empty'" class="text-muted mb-0">
+            {{ peersReason || "尚無同業資料" }}
+          </p>
+          <!-- 就緒 -->
+          <template v-else-if="peersState === 'ready'">
+            <p v-if="peersReason" class="text-muted small mb-2">{{ peersReason }}</p>
+            <div class="table-responsive">
+              <table class="table table-sm table-striped align-middle mb-0">
+                <thead>
+                  <tr>
+                    <th>代號</th>
+                    <th>名稱</th>
+                    <th class="text-end">PE</th>
+                    <th class="text-end">PB</th>
+                    <th class="text-end">殖利率</th>
+                    <th class="text-end">營收 YoY</th>
+                    <th class="text-end">毛利率</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="p in peers"
+                    :key="p.code"
+                    :class="{ 'table-warning fw-semibold': p.is_self }"
+                  >
+                    <td>{{ p.code }}</td>
+                    <td>{{ p.name || "—" }}</td>
+                    <td class="text-end">{{ fmtNum(p.pe) }}</td>
+                    <td class="text-end">{{ fmtNum(p.pb) }}</td>
+                    <td class="text-end">{{ fmtPct(p.dividend_yield) }}</td>
+                    <td class="text-end" :class="changeClass(p.revenue_yoy)">
+                      {{ fmtPct(p.revenue_yoy) }}
+                    </td>
+                    <td class="text-end">{{ fmtPct(p.gross_margin) }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </template>
+        </div>
       </div>
     </div>
   </div>

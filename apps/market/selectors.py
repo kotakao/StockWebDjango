@@ -5,9 +5,11 @@
 
 from datetime import date, timedelta
 
+from django.db import connections
 from django.db.models import Max
 
 from .models import (
+    CompanyProfile,
     DailyQuote,
     DividendEvent,
     Holding,
@@ -299,4 +301,45 @@ def latest_quarterly_financial(code: str) -> dict | None:
         .order_by("-year_quarter")
         .values("year_quarter", "revenue", "gross_profit", "operating_income", "eps")
         .first()
+    )
+
+
+# ---- 同業比較（D11）所需唯讀查詢：company_profile（DC-M 入庫，部分機器尚未累積）----
+
+
+def company_profile_available() -> bool:
+    """company_profile 表是否存在於 market 庫。
+
+    部分機器 market.db 尚未累積此表（StockDCBot DC-M 後才有），以 introspection 查
+    sqlite_master 判存在，避免 managed=False 模型查詢對不存在的表拋 OperationalError。
+    供 service/API 分辨「缺表」與「該股無產業資料」以回對應 reason。
+    """
+    return "company_profile" in connections["market"].introspection.table_names()
+
+
+def company_profile_industry(code: str) -> dict | None:
+    """取某代號的 market 與 industry_code（供定位同業）；表不存在或查無代號回 None。"""
+    if not company_profile_available():
+        return None
+    return (
+        CompanyProfile.objects.using("market")
+        .filter(code=code)
+        .values("market", "industry_code")
+        .first()
+    )
+
+
+def industry_peers(market: str, industry_code: str) -> list[dict]:
+    """取同 market 且同 industry_code 全部個股（market/code/name，依 code 排序）。
+
+    對齊 StockDCBot MarketStore.get_industry_peers（同 market＋同 industry_code、依 code 排序）；
+    表不存在回空清單。
+    """
+    if not company_profile_available():
+        return []
+    return list(
+        CompanyProfile.objects.using("market")
+        .filter(market=market, industry_code=industry_code)
+        .order_by("code")
+        .values("market", "code", "name")
     )

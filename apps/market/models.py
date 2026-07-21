@@ -200,3 +200,26 @@ class QuarterlyFinancial(models.Model):
     class Meta:
         managed = False
         db_table = "quarterly_financials"
+
+
+class CompanyProfile(models.Model):
+    """company_profile：公司基本資料（產業分類，StockDCBot DC-M 入庫）。PK(market, code)。
+
+    industry_code 為兩位數字產業代碼；listing_date/report_date 為寫入端維護的日期字串，
+    容錯 NULL。部分機器 market.db 尚未累積此表，selectors 需容忍「表不存在」（回空集合）。
+    本專案唯讀呈現。
+    """
+
+    pk = models.CompositePrimaryKey("market", "code")
+    market = models.CharField(max_length=8)
+    code = models.CharField(max_length=8)
+    name = models.TextField(null=True)
+    abbreviation = models.TextField(null=True)
+    en_abbreviation = models.TextField(null=True)
+    industry_code = models.TextField(null=True)
+    listing_date = models.TextField(null=True)
+    report_date = models.TextField(null=True)
+
+    class Meta:
+        managed = False
+        db_table = "company_profile"

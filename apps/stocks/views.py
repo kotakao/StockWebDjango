@@ -24,6 +24,7 @@ CACHE_TTL = 600  # 10 分鐘（spec §7）
 CACHE_KEY = "stock:{code}"  # 前綴 swd:v1 由 CACHES 設定加上
 REVENUE_CACHE_KEY = "stock:revenue:{code}"  # 月營收對比整包快取（前綴同上）
 QUOTES_CACHE_KEY = "quotes:{code}:{days}:{adjusted}"  # 日 K 序列快取（前綴同上）
+PEERS_CACHE_KEY = "peers:{code}"  # 同業對比整包快取（前綴同上）
 RECENT_LIMIT = 20  # 近 N 個交易日快照
 DEFAULT_DAYS = 252  # 日 K 預設近 252 交易日
 MAX_DAYS = 252  # days 上限
@@ -157,5 +158,31 @@ class StockQuotesView(APIView):
             "adjusted": adjusted,
             "quotes": services.build_quotes(code, days, adjusted),
         }
+        cache.set(cache_key, payload, timeout=CACHE_TTL)
+        return Response(payload)
+
+
+class StockPeersView(APIView):
+    """同業比較：company_profile 同產業個股的最新估值/營收 YoY/毛利率對比。
+
+    - code 非 4-6 位英數 → 400 {"error": ...}。
+    - 查無代號（daily_quotes 無列）→ 400。
+    - company_profile 缺表或該股無產業資料 → 200 {"peers": [], "reason": ...}。
+    - 整包 Redis 快取（key peers:{code}，前綴 swd:v1 由 CACHES 加上，TTL 10 分）。
+    """
+
+    def get(self, request, code):
+        """回 {"code", "peers": [...], "reason": ...}；本股列標 is_self。"""
+        code = _validate_code(code)
+        cache_key = PEERS_CACHE_KEY.format(code=code)
+
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        if not selectors.code_exists(code):
+            raise ValidationError("查無此代號")
+
+        payload = {"code": code, **services.build_peers(code)}
         cache.set(cache_key, payload, timeout=CACHE_TTL)
         return Response(payload)
