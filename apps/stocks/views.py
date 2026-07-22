@@ -12,6 +12,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.params import parse_bounded_int
 from apps.market import selectors
 
 from . import selectors as stocks_selectors
@@ -42,19 +43,6 @@ def _validate_code(code: str) -> str:
     if not CODE_RE.match(code or ""):
         raise ValidationError("code 需為 4-6 位英數")
     return code
-
-
-def _validate_days(raw: str | None) -> int:
-    """驗證 days：1~252 整數，缺省回 252；非整數或超界拋 ValidationError（→400）。"""
-    if raw in (None, ""):
-        return DEFAULT_DAYS
-    try:
-        days = int(raw)
-    except (TypeError, ValueError):
-        raise ValidationError("days 需為 1~252 的整數") from None
-    if not 1 <= days <= MAX_DAYS:
-        raise ValidationError(f"days 需為 1~{MAX_DAYS}")
-    return days
 
 
 def _parse_adjusted(raw: str | None) -> bool:
@@ -141,7 +129,9 @@ class StockQuotesView(APIView):
     def get(self, request, code):
         """回 {"code","days","adjusted","quotes":[...]}；quotes 日期舊到新。"""
         code = _validate_code(code)
-        days = _validate_days(request.query_params.get("days"))
+        days = parse_bounded_int(
+            request.query_params.get("days"), default=DEFAULT_DAYS, lo=1, hi=MAX_DAYS
+        )
         adjusted = _parse_adjusted(request.query_params.get("adjusted"))
 
         cache_key = QUOTES_CACHE_KEY.format(

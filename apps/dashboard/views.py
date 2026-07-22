@@ -7,10 +7,10 @@
 from django.conf import settings
 from django.core.cache import cache
 from django.shortcuts import render
-from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.params import parse_bounded_int
 from apps.market import selectors
 
 from .services import build_dashboard_summary, collect_recent_alerts
@@ -30,19 +30,6 @@ def index(request):
     return render(request, "dashboard/index.html")
 
 
-def _parse_days(raw: str | None) -> int:
-    """驗證 days 參數：1~252 整數，預設 60；不合法拋 DRF ValidationError（→400）。"""
-    if raw is None or raw == "":
-        return DAYS_DEFAULT
-    try:
-        days = int(raw)
-    except (TypeError, ValueError):
-        raise ValidationError("days 必須為整數") from None
-    if not (DAYS_MIN <= days <= DAYS_MAX):
-        raise ValidationError(f"days 需介於 {DAYS_MIN} 與 {DAYS_MAX}")
-    return days
-
-
 class DashboardSummaryView(APIView):
     """市場序列彙整：指數、成交金額、漲跌家數、三大法人、融資餘額。
 
@@ -52,7 +39,9 @@ class DashboardSummaryView(APIView):
 
     def get(self, request):
         """回傳近 days 交易日的四序列；驗證錯誤 400 {"error": ...}。"""
-        days = _parse_days(request.query_params.get("days"))
+        days = parse_bounded_int(
+            request.query_params.get("days"), default=DAYS_DEFAULT, lo=DAYS_MIN, hi=DAYS_MAX
+        )
         cache_key = f"dashboard:{days}"
 
         payload = cache.get(cache_key)
@@ -62,19 +51,6 @@ class DashboardSummaryView(APIView):
             cache.set(cache_key, payload, timeout=CACHE_TTL)
 
         return Response(payload)
-
-
-def _parse_alerts_days(raw: str | None) -> int:
-    """驗證 alerts 的 days 參數：1~10 整數，預設 5；不合法拋 ValidationError（→400）。"""
-    if raw is None or raw == "":
-        return ALERTS_DAYS_DEFAULT
-    try:
-        days = int(raw)
-    except (TypeError, ValueError):
-        raise ValidationError("days 必須為整數") from None
-    if not (ALERTS_DAYS_MIN <= days <= ALERTS_DAYS_MAX):
-        raise ValidationError(f"days 需介於 {ALERTS_DAYS_MIN} 與 {ALERTS_DAYS_MAX}")
-    return days
 
 
 class DashboardAlertsView(APIView):
@@ -90,7 +66,10 @@ class DashboardAlertsView(APIView):
         REPORTS_DIR 未設定／無可讀報告 → 200 {"alerts": [], "reason": "..."}；
         有可讀報告但無警示 → {"alerts": [], "reason": null}。
         """
-        days = _parse_alerts_days(request.query_params.get("days"))
+        days = parse_bounded_int(
+            request.query_params.get("days"),
+            default=ALERTS_DAYS_DEFAULT, lo=ALERTS_DAYS_MIN, hi=ALERTS_DAYS_MAX,
+        )
         cache_key = f"alerts:{days}"
 
         payload = cache.get(cache_key)
