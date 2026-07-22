@@ -39,6 +39,12 @@ const peers = ref([]);
 const peersReason = ref("");
 const peersOpen = ref(true);
 
+// 公司概況（第三方參考，D13）：獨立狀態，失敗不影響 summary 區塊。
+// research 為 null（尚未匯入）時整卡不顯示（優雅降級）。
+const researchState = ref("idle"); // idle | loading | ready | error
+const researchError = ref("");
+const research = ref(null);
+
 // LwChart series：candlestick 主圖 ＋ 成交量、法人淨額兩個 histogram 副圖（分層 scaleMargins）。
 const klineSeries = computed(() => {
   const rows = quotes.value;
@@ -161,6 +167,7 @@ async function runFetch(code) {
     fetchRevenue(code); // summary 就緒後併行取月營收（失敗不影響上方）
     fetchQuotes(code); // 併行取日 K（失敗不影響上方）
     fetchPeers(code); // 併行取同業比較（失敗不影響上方）
+    fetchResearch(code); // 併行取公司概況（失敗不影響上方）
   } catch (err) {
     errorMsg.value = err.message || "載入失敗";
     state.value = "error";
@@ -239,6 +246,29 @@ async function fetchPeers(code) {
   }
 }
 
+// 公司概況：獨立呼叫，錯誤僅記在 researchError，不動 summary 區塊。
+// 200 的 research 可能為 null（尚未匯入），此時卡片整卡不顯示。
+async function fetchResearch(code) {
+  researchState.value = "loading";
+  researchError.value = "";
+  research.value = null;
+  try {
+    const resp = await fetch(`/api/stocks/${encodeURIComponent(code)}/research`);
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}));
+      researchError.value = body.error || `HTTP ${resp.status}`;
+      researchState.value = "error";
+      return;
+    }
+    const data = await resp.json();
+    research.value = data.research ?? null;
+    researchState.value = "ready";
+  } catch (err) {
+    researchError.value = err.message || "公司概況載入失敗";
+    researchState.value = "error";
+  }
+}
+
 function submit() {
   const code = codeInput.value.trim();
   if (!CODE_RE.test(code)) {
@@ -256,6 +286,9 @@ function submit() {
   peers.value = [];
   peersReason.value = "";
   peersState.value = "idle";
+  research.value = null;
+  researchError.value = "";
+  researchState.value = "idle";
   queriedCode.value = code;
   state.value = "loading";
   runFetch(code);
@@ -505,6 +538,50 @@ onUnmounted(clearTimer);
                 </tbody>
               </table>
             </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- 公司概況（第三方參考：My-TW-Coverage 質化資料；research 為 null 時整卡不顯示） -->
+      <div
+        v-if="researchState === 'loading' || researchState === 'error' || (researchState === 'ready' && research)"
+        class="card mt-4"
+      >
+        <div class="card-header">
+          <h2 class="h6 mb-0">公司概況（第三方參考）</h2>
+        </div>
+        <div class="card-body">
+          <!-- 載入中 -->
+          <div v-if="researchState === 'loading'" class="text-center text-muted py-3">
+            <div class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></div>
+            <span class="ms-2">公司概況載入中…</span>
+          </div>
+          <!-- 錯誤 -->
+          <div v-else-if="researchState === 'error'" class="alert alert-warning py-2 mb-0" role="alert">
+            公司概況載入失敗：{{ researchError }}
+          </div>
+          <!-- 就緒（research 非 null 才會進到此卡） -->
+          <template v-else>
+            <div v-if="research.sector_en || research.industry_en" class="mb-2">
+              <span v-if="research.sector_en" class="badge text-bg-secondary me-1">
+                板塊 {{ research.sector_en }}
+              </span>
+              <span v-if="research.industry_en" class="badge text-bg-secondary">
+                產業 {{ research.industry_en }}
+              </span>
+            </div>
+            <p v-if="research.business_summary" class="mb-2" style="white-space: pre-line">{{
+              research.business_summary
+            }}</p>
+            <div v-if="research.themes && research.themes.length" class="mb-2">
+              <span v-for="t in research.themes" :key="t.key" class="badge text-bg-info me-1 mb-1">
+                {{ t.title }}
+              </span>
+            </div>
+            <p class="text-muted small mb-0">
+              資料來源：My-TW-Coverage（MIT）／第三方 LLM 研究，非即時、非投資建議。
+              匯入日：{{ research.imported_at ? research.imported_at.slice(0, 10) : "—" }}
+            </p>
           </template>
         </div>
       </div>

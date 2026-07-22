@@ -5,6 +5,7 @@ from django.urls import path
 from .views import (
     StockPeersView,
     StockQuotesView,
+    StockResearchView,
     StockRevenueView,
     StockSummaryView,
 )
@@ -16,4 +17,5 @@ urlpatterns = [
     path("<str:code>/revenue", StockRevenueView.as_view(), name="revenue"),
     path("<str:code>/quotes", StockQuotesView.as_view(), name="quotes"),
     path("<str:code>/peers", StockPeersView.as_view(), name="peers"),
+    path("<str:code>/research", StockResearchView.as_view(), name="research"),
 ]

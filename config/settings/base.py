@@ -109,6 +109,10 @@ WATCHLIST_USER_ID = env("WATCHLIST_USER_ID", default="0")
 # 未設定（空字串）或目錄不存在時，警示功能優雅降級（API 回空清單＋原因）。
 REPORTS_DIR = env("REPORTS_DIR", default="")
 
+# ---- 公司質化研究（D13）：My-TW-Coverage 本機 clone 目錄（import_company_research 匯入用）----
+# 未設定時匯入指令須以 --source 明確指定；兩者皆缺則報錯退出（不靜默、不連網下載）。
+RESEARCH_SOURCE_DIR = env("RESEARCH_SOURCE_DIR", default="")
+
 # ---- DRF 全域設定（JSON only、anon 60/min、統一 400 錯誤格式）----
 REST_FRAMEWORK = {
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],

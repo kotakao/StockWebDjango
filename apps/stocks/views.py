@@ -14,6 +14,7 @@ from rest_framework.views import APIView
 
 from apps.market import selectors
 
+from . import selectors as stocks_selectors
 from . import services
 from .models import StockSnapshot
 from .serializers import StockSnapshotSerializer
@@ -25,6 +26,7 @@ CACHE_KEY = "stock:{code}"  # 前綴 swd:v1 由 CACHES 設定加上
 REVENUE_CACHE_KEY = "stock:revenue:{code}"  # 月營收對比整包快取（前綴同上）
 QUOTES_CACHE_KEY = "quotes:{code}:{days}:{adjusted}"  # 日 K 序列快取（前綴同上）
 PEERS_CACHE_KEY = "peers:{code}"  # 同業對比整包快取（前綴同上）
+RESEARCH_CACHE_KEY = "research:{code}"  # 公司質化研究整包快取（前綴同上）
 RECENT_LIMIT = 20  # 近 N 個交易日快照
 DEFAULT_DAYS = 252  # 日 K 預設近 252 交易日
 MAX_DAYS = 252  # days 上限
@@ -184,5 +186,36 @@ class StockPeersView(APIView):
             raise ValidationError("查無此代號")
 
         payload = {"code": code, **services.build_peers(code)}
+        cache.set(cache_key, payload, timeout=CACHE_TTL)
+        return Response(payload)
+
+
+class StockResearchView(APIView):
+    """公司質化研究（D13）：My-TW-Coverage 匯入的業務簡介與題材（純 default 庫）。
+
+    - code 非 4-6 位英數 → 400 {"error": ...}。
+    - 查無資料 → 200 {"code": code, "research": null}（多數股尚未匯入屬正常，非 404）。
+    - 有資料 → research 含 name/sector_en/industry_en/business_summary/
+      themes（[{key,title}]）/source_repo/imported_at。
+    - 整包 Redis 快取（key research:{code}，前綴 swd:v1 由 CACHES 加上，TTL 10 分）。
+    """
+
+    def get(self, request, code):
+        """回 {"code", "research": {...} | null}；題材列 {key,title}（缺定義退回 key）。"""
+        code = _validate_code(code)
+        cache_key = RESEARCH_CACHE_KEY.format(code=code)
+
+        cached = cache.get(cache_key)
+        if cached is not None:
+            return Response(cached)
+
+        research = stocks_selectors.company_research(code)
+        if research is not None:
+            titles = stocks_selectors.theme_titles(research["themes"])
+            research["themes"] = [
+                {"key": key, "title": titles.get(key, key)} for key in research["themes"]
+            ]
+
+        payload = {"code": code, "research": research}
         cache.set(cache_key, payload, timeout=CACHE_TTL)
         return Response(payload)
