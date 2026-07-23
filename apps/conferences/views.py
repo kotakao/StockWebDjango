@@ -9,10 +9,10 @@
 
 from django.core.cache import cache
 from django.shortcuts import render
-from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from apps.core.params import parse_bounded_int
 from apps.market import selectors
 
 DAYS_DEFAULT = 30
@@ -27,19 +27,6 @@ def index(request):
     return render(request, "conferences/index.html")
 
 
-def _parse_days(raw: str | None) -> int:
-    """驗證 days 參數：1~90 整數，預設 30；不合法拋 DRF ValidationError（→400）。"""
-    if raw is None or raw == "":
-        return DAYS_DEFAULT
-    try:
-        days = int(raw)
-    except (TypeError, ValueError):
-        raise ValidationError("days 必須為整數") from None
-    if not (DAYS_MIN <= days <= DAYS_MAX):
-        raise ValidationError(f"days 需介於 {DAYS_MIN} 與 {DAYS_MAX}")
-    return days
-
-
 class ConferenceSummaryView(APIView):
     """法說會彙整：即將召開（依 days 窗）＋近期公告（固定近 20 筆）。
 
@@ -49,7 +36,12 @@ class ConferenceSummaryView(APIView):
 
     def get(self, request):
         """回傳 {"days": n, "upcoming": [...], "recent": [...]}。"""
-        days = _parse_days(request.query_params.get("days"))
+        days = parse_bounded_int(
+            request.query_params.get("days"),
+            default=DAYS_DEFAULT,
+            lo=DAYS_MIN,
+            hi=DAYS_MAX,
+        )
         cache_key = f"conferences:{days}"
 
         payload = cache.get(cache_key)
